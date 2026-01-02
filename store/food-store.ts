@@ -81,7 +81,7 @@ export const useFoodStore = create<FoodState>((set, get) => ({
     try {
       const mergedFilters = { ...get().filters, ...filters };
       const params = new URLSearchParams();
-      
+
       Object.entries(mergedFilters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "") {
           params.append(key, String(value));
