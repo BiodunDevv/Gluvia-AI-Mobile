@@ -1,0 +1,523 @@
+import api from "@/lib/api";
+import { getDeviceId } from "@/lib/device";
+import {
+  clearOfflineSession,
+  getOfflineSession,
+  saveUserOffline,
+  updateUserOffline,
+} from "@/lib/offline-db";
+import { showApiError, toast } from "@/lib/toast";
+import * as SecureStore from "expo-secure-store";
+import { create } from "zustand";
+
+// Types
+export interface UserProfile {
+  age?: number;
+  sex?: "male" | "female" | "other";
+  heightCm?: number;
+  weightKg?: number;
+  bmi?: number;
+  diabetesType?: "type1" | "type2" | "prediabetes" | "unknown";
+  activityLevel?: "low" | "moderate" | "high";
+  allergies?: string[];
+  incomeBracket?: "low" | "middle" | "high";
+  language?: string;
+  profileImage?: {
+    public_id?: string;
+    secure_url?: string;
+  };
+}
+
+export interface User {
+  _id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  role: "user" | "health_worker" | "admin";
+  deleted?: boolean;
+  profile?: UserProfile;
+  consent?: {
+    accepted: boolean;
+    timestamp?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpdateProfileData {
+  name?: string;
+  email?: string;
+  password?: string;
+  phone?: string;
+  profile?: Partial<UserProfile>;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  name?: string;
+  phone?: string;
+  consent: {
+    accepted: boolean;
+    timestamp?: string;
+  };
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  expiresAt: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  isOffline: boolean;
+  error: string | null;
+
+  // Actions
+  register: (data: RegisterData) => Promise<void>;
+  login: (data: LoginData) => Promise<void>;
+  logout: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  getProfile: () => Promise<void>;
+  updateProfile: (data: UpdateProfileData) => Promise<void>;
+  uploadPhoto: (imageUri: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  checkAuth: () => Promise<boolean>;
+  clearError: () => void;
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  token: null,
+  expiresAt: null,
+  isLoading: false,
+  isAuthenticated: false,
+  isOffline: false,
+  error: null,
+
+  register: async (data: RegisterData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const deviceId = await getDeviceId();
+      const response = await api.post("/auth/register", {
+        ...data,
+        deviceId,
+        consent: {
+          ...data.consent,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      const { user, token, expiresAt } = response.data.data;
+
+      // Check if user is admin - block admin access
+      if (user.role === "admin") {
+        set({ isLoading: false });
+        throw new Error(
+          "Admin accounts cannot access the mobile app. Please login at https://gluvia.vercel.app"
+        );
+      }
+
+      // Store in secure storage
+      await SecureStore.setItemAsync("authToken", token);
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
+      await SecureStore.setItemAsync("expiresAt", expiresAt);
+
+      // Save for offline access
+      await saveUserOffline(
+        {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          deleted: user.deleted || false,
+          profile: user.profile || { allergies: [] },
+          consent: user.consent || { accepted: true },
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+        token,
+        expiresAt
+      );
+
+      set({
+        user,
+        token,
+        expiresAt,
+        isAuthenticated: true,
+        isOffline: false,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      const { message } = showApiError(
+        error,
+        "Registration failed. Please try again."
+      );
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  login: async (data: LoginData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const deviceId = await getDeviceId();
+      const response = await api.post("/auth/login", {
+        ...data,
+        deviceId,
+      });
+
+      const { user, token, expiresAt } = response.data.data;
+
+      // Check if user is admin - block admin access
+      if (user.role === "admin") {
+        set({ isLoading: false });
+        throw new Error(
+          "Admin accounts cannot access the mobile app. Please login at https://gluvia.vercel.app"
+        );
+      }
+
+      // Store in secure storage
+      await SecureStore.setItemAsync("authToken", token);
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
+      await SecureStore.setItemAsync("expiresAt", expiresAt);
+
+      // Save for offline access
+      await saveUserOffline(
+        {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          deleted: user.deleted || false,
+          profile: user.profile || { allergies: [] },
+          consent: user.consent || { accepted: true },
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+        token,
+        expiresAt
+      );
+
+      set({
+        user,
+        token,
+        expiresAt,
+        isAuthenticated: true,
+        isOffline: false,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      // If network error, try offline login
+      if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+        try {
+          const offlineSession = await getOfflineSession();
+          if (offlineSession) {
+            // Convert offline user to User format
+            const user: User = {
+              _id: offlineSession.user.id,
+              email: offlineSession.user.email,
+              name: offlineSession.user.name,
+              phone: offlineSession.user.phone,
+              role: offlineSession.user.role as User["role"],
+              deleted: offlineSession.user.deleted,
+              profile: offlineSession.user.profile,
+              consent: offlineSession.user.consent,
+              createdAt: offlineSession.user.createdAt,
+              updatedAt: offlineSession.user.updatedAt,
+            };
+
+            set({
+              user,
+              token: offlineSession.token,
+              expiresAt: offlineSession.expiresAt,
+              isAuthenticated: true,
+              isOffline: true,
+              isLoading: false,
+            });
+            return;
+          }
+        } catch (offlineError) {
+          console.error("Offline login failed:", offlineError);
+        }
+      }
+
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error?.message ||
+        error.message ||
+        "Invalid email or password.";
+      showApiError(error, "Invalid email or password.");
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  logout: async () => {
+    set({ isLoading: true });
+    try {
+      if (!get().isOffline) {
+        const deviceId = await getDeviceId();
+        await api.post("/auth/logout", { deviceId });
+      }
+    } catch (error) {
+      console.warn("Logout API call failed:", error);
+    } finally {
+      // Clear secure storage
+      await SecureStore.deleteItemAsync("authToken");
+      await SecureStore.deleteItemAsync("user");
+      await SecureStore.deleteItemAsync("expiresAt");
+
+      // Clear offline session
+      await clearOfflineSession();
+
+      set({
+        user: null,
+        token: null,
+        expiresAt: null,
+        isAuthenticated: false,
+        isOffline: false,
+        isLoading: false,
+        error: null,
+      });
+    }
+  },
+
+  requestPasswordReset: async (email: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post("/auth/password-reset-request", { email });
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ isLoading: false });
+    }
+  },
+
+  getProfile: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.get("/auth/me");
+      const { user } = response.data.data;
+
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
+
+      // Update offline copy
+      await saveUserOffline(
+        {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          role: user.role,
+          deleted: user.deleted || false,
+          profile: user.profile || {},
+          consent: user.consent || { accepted: true },
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+        get().token || "",
+        get().expiresAt || ""
+      );
+
+      set({ user, isLoading: false, isOffline: false, error: null });
+    } catch (error: any) {
+      // If offline, use cached data - don't clear the user
+      if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+        toast.info("Offline Mode", "Using cached data");
+        set({ isLoading: false, isOffline: true, error: null });
+        return;
+      }
+      // For other errors, keep the existing user data but show error
+      const { message } = showApiError(error, "Failed to get profile.");
+      set({ error: message, isLoading: false });
+      // Don't clear user data or throw - just set the error state
+    }
+  },
+
+  updateProfile: async (data: UpdateProfileData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.put("/auth/me", data);
+
+      // Handle both response structures: response.data.data.user or response.data.user
+      const user = response.data.data?.user || response.data.user;
+
+      if (!user) {
+        throw new Error("Invalid response structure from server");
+      }
+
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
+
+      // Update offline copy
+      if (get().user?._id) {
+        await updateUserOffline(get().user!._id, {
+          name: user.name,
+          phone: user.phone,
+          profile: user.profile,
+        });
+      }
+
+      set({ user, isLoading: false, error: null });
+    } catch (error: any) {
+      const { message } = showApiError(error, "Failed to update profile.");
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  uploadPhoto: async (imageUri: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const formData = new FormData();
+      const filename = imageUri.split("/").pop() || "photo.jpg";
+      const match = /\.([\w]+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+
+      formData.append("image", {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+
+      const response = await api.post("/auth/upload-photo", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const { profileImage } = response.data.data;
+
+      // Update user with new profile image
+      const currentUser = get().user;
+      if (currentUser) {
+        const updatedUser = {
+          ...currentUser,
+          profile: {
+            ...currentUser.profile,
+            profileImage,
+          },
+        };
+        await SecureStore.setItemAsync("user", JSON.stringify(updatedUser));
+        set({ user: updatedUser, isLoading: false, error: null });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch (error: any) {
+      const { message } = showApiError(error, "Failed to upload photo.");
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  deleteAccount: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.delete("/auth/delete-account");
+
+      // Clear all local data
+      await SecureStore.deleteItemAsync("authToken");
+      await SecureStore.deleteItemAsync("user");
+      await SecureStore.deleteItemAsync("expiresAt");
+      await clearOfflineSession();
+
+      set({
+        user: null,
+        token: null,
+        expiresAt: null,
+        isAuthenticated: false,
+        isOffline: false,
+        isLoading: false,
+        error: null,
+      });
+      toast.success(
+        "Account Deleted",
+        "Your account has been permanently deleted."
+      );
+    } catch (error: any) {
+      const { message } = showApiError(error, "Failed to delete account.");
+      set({ error: message, isLoading: false });
+      throw new Error(message);
+    }
+  },
+
+  checkAuth: async () => {
+    try {
+      // First check secure storage
+      const token = await SecureStore.getItemAsync("authToken");
+      const userStr = await SecureStore.getItemAsync("user");
+      const expiresAt = await SecureStore.getItemAsync("expiresAt");
+
+      if (token && userStr) {
+        // Check if token is expired
+        if (expiresAt && new Date(expiresAt) < new Date()) {
+          await get().logout();
+          return false;
+        }
+
+        const user = JSON.parse(userStr);
+
+        // Block admin access
+        if (user.role === "admin") {
+          await get().logout();
+          return false;
+        }
+
+        set({
+          user,
+          token,
+          expiresAt,
+          isAuthenticated: true,
+          isOffline: false,
+        });
+        return true;
+      }
+
+      // Try offline session
+      const offlineSession = await getOfflineSession();
+      if (offlineSession) {
+        // Block admin access
+        if (offlineSession.user.role === "admin") {
+          await clearOfflineSession();
+          return false;
+        }
+
+        const user: User = {
+          _id: offlineSession.user.id,
+          email: offlineSession.user.email,
+          name: offlineSession.user.name,
+          phone: offlineSession.user.phone,
+          role: offlineSession.user.role as User["role"],
+          deleted: offlineSession.user.deleted,
+          profile: offlineSession.user.profile,
+          consent: offlineSession.user.consent,
+          createdAt: offlineSession.user.createdAt,
+          updatedAt: offlineSession.user.updatedAt,
+        };
+
+        set({
+          user,
+          token: offlineSession.token,
+          expiresAt: offlineSession.expiresAt,
+          isAuthenticated: true,
+          isOffline: true,
+        });
+        return true;
+      }
+
+      set({ isAuthenticated: false });
+      return false;
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      set({ isAuthenticated: false });
+      return false;
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));
