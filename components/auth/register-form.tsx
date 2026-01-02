@@ -24,7 +24,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LegalModal, StepIndicator } from ".";
+import { LegalModal } from "./legal-modal";
+import { StepIndicator } from "./step-indicator";
 
 const TOTAL_STEPS = 3;
 

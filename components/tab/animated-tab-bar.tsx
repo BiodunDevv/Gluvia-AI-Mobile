@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Dimensions, Pressable, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -20,23 +20,16 @@ export function AnimatedTabBar({
 
   // Animated value for sliding indicator
   const slideAnim = useSharedValue(0);
-  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    if (isInitialMount.current) {
-      // Set initial position without animation
-      slideAnim.value = state.index * tabWidth;
-      isInitialMount.current = false;
-    } else {
-      // Animate to new position with smooth spring
-      slideAnim.value = withSpring(state.index * tabWidth, {
-        damping: 18,
-        stiffness: 180,
-        mass: 0.5,
-        overshootClamping: false,
-      });
-    }
-  }, [state.index, tabWidth, slideAnim]);
+    // Animate to new position with smooth spring
+    slideAnim.value = withSpring(state.index * tabWidth, {
+      damping: 18,
+      stiffness: 180,
+      mass: 0.5,
+      overshootClamping: false,
+    });
+  }, [state.index, tabWidth]);
 
   const getIconName = (routeName: string, focused: boolean): string => {
     const icons: Record<string, { focused: string; unfocused: string }> = {
