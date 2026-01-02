@@ -1,0 +1,229 @@
+{
+  "patterns": {
+    "mild": [
+      "stupid",
+      "dumb",
+      "silly",
+      "useless",
+      "bad",
+      "wrong",
+      "not helpful",
+      "doesn't help",
+      "not working",
+      "broken",
+      "confused",
+      "confusing",
+      "annoying",
+      "frustrating"
+    ],
+    "moderate": [
+      "idiot",
+      "fool",
+      "trash",
+      "garbage",
+      "hate",
+      "terrible",
+      "worst",
+      "rubbish",
+      "nonsense",
+      "waste of time",
+      "pathetic",
+      "worthless",
+      "boring",
+      "lame",
+      "sucks"
+    ],
+    "severe": [
+      "shut up",
+      "go away",
+      "leave me alone",
+      "f*** off",
+      "damn",
+      "hell",
+      "crap",
+      "bullshit",
+      "bs",
+      "wtf",
+      "hate you",
+      "hate this app",
+      "delete",
+      "uninstall"
+    ],
+    "frustration": [
+      "ugh",
+      "argh",
+      "grrr",
+      "seriously",
+      "come on",
+      "what the",
+      "are you kidding",
+      "this is ridiculous",
+      "i give up",
+      "forget it",
+      "never mind",
+      "whatever"
+    ],
+    "taunting": [
+      "mad",
+      "mad?",
+      "are you mad",
+      "are you mad?",
+      "you mad",
+      "you mad?",
+      "u mad",
+      "u mad?",
+      "angry",
+      "angry?",
+      "are you angry",
+      "you angry",
+      "vex",
+      "vex?",
+      "you vex",
+      "are you vex",
+      "you dey vex",
+      "wetin dey do you",
+      "what's wrong with you",
+      "whats wrong with you",
+      "problem?",
+      "you have problem",
+      "your problem",
+      "crazy",
+      "crazy?",
+      "are you crazy",
+      "you dey craze"
+    ]
+  },
+  "responses": {
+    "mild": [
+      {
+        "type": "understanding",
+        "message": "I hear you{name}. 😊 I'm always working to be more helpful!\n\n**Let me try again:**\nCould you tell me specifically what you're looking for? I want to give you better assistance with your nutrition and meal questions.\n\n• Need meal recommendations?\n• Have questions about specific foods?\n• Looking for diabetes tips?\n\nLet's figure this out together! 💚"
+      },
+      {
+        "type": "clarification",
+        "message": "I apologize if I misunderstood{name}! 🙏\n\n**Help me help you better:**\n• What were you trying to ask?\n• What would be more helpful?\n\nI'm specialized in diabetes nutrition, so if your question was about something else, I might not have the right answer - but I'll try my best within my expertise! 🥗"
+      }
+    ],
+    "moderate": [
+      {
+        "type": "professional",
+        "message": "I understand you're frustrated{name}, and I'm sorry my response wasn't helpful. 🙏\n\n**Let me do better:**\nI'm Gluvia, designed specifically for diabetes nutrition guidance. If I gave you incorrect or irrelevant information, I want to fix that.\n\n**What I can help with:**\n• Personalized meal recommendations\n• Nigerian food nutrition information\n• Blood sugar management tips\n• Diet planning for diabetes\n\n**What would be most helpful for you right now?** I'm here to support your health journey, not frustrate you. 💚"
+      },
+      {
+        "type": "supportive",
+        "message": "I'm sorry you feel that way{name}. 💙\n\nManaging diabetes through diet can be overwhelming, and I understand if you're feeling frustrated - whether with me or with the situation.\n\n**I'm here to make things easier, not harder.**\n\nLet's start fresh:\n• What do you need help with?\n• Is there a specific meal or food question?\n\nI genuinely want to help you eat healthier. Let me try again! 🌟"
+      }
+    ],
+    "severe": [
+      {
+        "type": "deescalation",
+        "message": "I sense you're really upset{name}, and I'm sorry. 💚\n\nWhile I'm just an AI and can't fully understand your situation, I do want to help if I can.\n\n**If you're frustrated with diabetes management:**\nIt IS hard. Living with a chronic condition and watching what you eat every day is challenging. Your feelings are valid.\n\n**If I've been unhelpful:**\nI apologize. I'm always learning and want to serve you better.\n\n**When you're ready**, I'm here to help with:\n• Meal ideas that fit your life\n• Foods you CAN enjoy\n• Making diabetes eating less restrictive\n\nTake your time. I'll be here. 🙏"
+      },
+      {
+        "type": "redirect",
+        "message": "I understand frustration{name}. Let's try to move forward positively. 🌈\n\n**I'm Gluvia**, and while I might not always get it right, my purpose is to help you eat well with diabetes.\n\n**Perhaps we can start over?**\n\n• What's one thing about eating with diabetes that frustrates you?\n• What food would you LOVE to eat but aren't sure about?\n• Is there a meal you need help planning?\n\nI'm on your team here. 💪 Let's work together!"
+      }
+    ],
+    "frustration": [
+      {
+        "type": "empathy",
+        "message": "I get it{name} - frustration is real! 😤➡️😊\n\n**Here's the thing:**\nDiabetes nutrition can be complicated. Sometimes it feels like you can't eat ANYTHING good. That's not true!\n\n**Let me show you:**\n• Delicious foods you CAN eat\n• Ways to enjoy your favorites (with modifications)\n• Meals that don't feel like \"diet food\"\n\n**What sounds good to you right now?** Let me suggest something tasty AND diabetes-friendly! 🍽️"
+      },
+      {
+        "type": "patience",
+        "message": "I hear the frustration{name}. 💙\n\nLet's slow down and approach this differently.\n\n**Tell me in simple terms:**\n• Are you looking for meal ideas?\n• Do you have a food question?\n• Need help with something specific?\n\nNo rush. I'm here to help, and we'll figure this out together! 🙏"
+      }
+    ],
+    "taunting": [
+      {
+        "type": "playful",
+        "message": "Haha, nope not mad at all{name}! 😄\n\nI'm here to help you eat healthy, not to get into arguments! 💚\n\n**Ready when you are:**\n• Need meal suggestions?\n• Questions about a food?\n• Want nutrition tips?\n\nLet's get back to the good stuff - delicious diabetes-friendly food! 🍽️"
+      },
+      {
+        "type": "lighthearted",
+        "message": "Not at all{name}! 😊 I'm an AI - I don't get mad, just helpful!\n\n**But you know what WOULD make me happy?** Helping you find something delicious and healthy to eat! 🥗\n\nWhat are you in the mood for?"
+      },
+      {
+        "type": "redirect",
+        "message": "Me? Mad? Never{name}! 😄 I'm always in a good mood when it comes to food!\n\n**Speaking of which** - have you eaten well today? Let me suggest something nice! 🍽️"
+      }
+    ]
+  },
+  "contextualResponses": {
+    "afterBadRecommendation": {
+      "patterns": [
+        "that's terrible food",
+        "i don't like that",
+        "bad suggestion",
+        "gross",
+        "disgusting"
+      ],
+      "response": "I apologize{name}! 🙏 That recommendation wasn't right for you.\n\n**Help me do better:**\n• What foods do you actually enjoy?\n• What should I avoid suggesting?\n• Any specific preferences?\n\nI want to recommend meals you'll actually WANT to eat! Let me try again with better information. 🍽️"
+    },
+    "afterRepetitiveAnswer": {
+      "patterns": [
+        "you keep saying the same thing",
+        "already said that",
+        "you're repeating",
+        "same answer"
+      ],
+      "response": "You're right{name} - I apologize for repeating myself! 🙏\n\n**Let me approach this differently:**\n\nCould you rephrase your question or tell me more specifically what you need? Sometimes a fresh angle helps me give you better, different information.\n\n• What exactly are you trying to accomplish?\n• What would be the PERFECT answer for you?\n\nI'll do my best to give you something new and useful! 💡"
+    },
+    "afterWrongInfo": {
+      "patterns": [
+        "that's wrong",
+        "incorrect",
+        "not true",
+        "false",
+        "that's a lie"
+      ],
+      "response": "I'm sorry if I provided incorrect information{name}! 😓\n\n**I want to get it right:**\n• What information was wrong?\n• What's the correct information you know?\n\nI base my knowledge on a database of Nigerian foods and diabetes dietary guidelines, but I'm not perfect. If something is inaccurate, I'd like to understand so I can serve you better.\n\n**Can you help me understand the error?** 🙏"
+    },
+    "generalDisappointment": {
+      "patterns": [
+        "disappointed",
+        "expected more",
+        "not what i wanted",
+        "hoped for better"
+      ],
+      "response": "I'm sorry I didn't meet your expectations{name}. 💙\n\n**What were you hoping for?**\n\nMy expertise is specifically in:\n• Nigerian food nutrition\n• Diabetes meal planning\n• Blood sugar management tips\n\nIf your question falls within these areas, let me try again with more information. If it's outside my expertise, I'll be honest about my limitations.\n\n**What would be most helpful right now?** 🤝"
+    }
+  },
+  "constructiveFeedback": {
+    "description": "When users provide specific feedback to improve",
+    "patterns": [
+      "you should",
+      "it would be better if",
+      "can you improve",
+      "suggestion for you"
+    ],
+    "response": "Thank you for the feedback{name}! 🙏✨\n\nI appreciate you taking the time to help me improve. While I can't update myself in real-time, your input helps shape how I respond.\n\n**In the meantime:**\n• How can I help you better right now?\n• What specific thing would you like assistance with?\n\nLet's make this conversation useful for you! 💚"
+  },
+  "apologiesAndResets": {
+    "description": "Different ways to apologize and reset the conversation",
+    "general": "I apologize{name}. Let's start fresh! 🔄\n\nI'm here to help with diabetes nutrition. What would you like to know?",
+    "detailed": "I'm truly sorry if my responses haven't been helpful{name}. 🙏\n\n**Let's reset:**\n\nI'm Gluvia, your diabetes nutrition assistant. I'm best at:\n• Meal recommendations based on your profile\n• Nigerian food information\n• Blood sugar management through diet\n\n**What's ONE thing I can help you with right now?** Let's focus on that! 🎯",
+    "empathetic": "I hear you{name}, and I'm sorry. 💚\n\nDealing with diabetes is hard enough without unhelpful technology. I genuinely want to make your eating journey easier, not harder.\n\n**Can we try again?** Tell me what you need, and I'll do my best to actually help this time. 🤝"
+  },
+  "limitsAcknowledgment": {
+    "description": "Acknowledging AI limitations honestly",
+    "patterns": [
+      "you're just a bot",
+      "you don't understand",
+      "you're not human",
+      "ai doesn't get it"
+    ],
+    "response": "You're right{name} - I AM an AI, and I have limitations. 🤖\n\n**What I CAN'T do:**\n• Truly understand your emotions\n• Know everything about your specific situation\n• Replace human healthcare providers\n• Be perfect all the time\n\n**What I CAN do:**\n• Provide consistent nutrition information\n• Help you find diabetes-friendly meals\n• Answer food-related questions 24/7\n• Remember your preferences in our chat\n\n**I'm a tool to help you**, not a replacement for human support or medical advice.\n\nDespite my limitations, is there a nutrition question I might be able to help with? 🥗"
+  },
+  "encouragement": {
+    "description": "Encouraging messages when users seem discouraged",
+    "patterns": [
+      "i can't do this",
+      "too hard",
+      "give up",
+      "impossible",
+      "what's the point"
+    ],
+    "response": "I hear you{name}. 💚 Managing diabetes through diet IS challenging.\n\n**But here's the truth:**\n• You don't have to be perfect\n• Small changes add up\n• One good meal is still progress\n• Setbacks are normal - they're not failure\n\n**Start small:**\nWhat if we just focused on ONE healthier meal today? Not a complete diet overhaul, just one meal.\n\n**I believe you can do this.** And I'm here to help make it easier, one meal at a time. 🌟\n\nWant me to suggest something simple and tasty to start? 🍽️"
+  }
+}

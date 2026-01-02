@@ -1,0 +1,474 @@
+{
+  "categories": {
+    "entertainment": {
+      "patterns": [
+        "movie",
+        "film",
+        "cinema",
+        "nollywood",
+        "hollywood",
+        "bollywood",
+        "music",
+        "song",
+        "singer",
+        "artist",
+        "album",
+        "concert",
+        "actor",
+        "actress",
+        "celebrity",
+        "famous",
+        "star",
+        "netflix",
+        "youtube",
+        "tiktok",
+        "instagram",
+        "social media",
+        "game",
+        "video game",
+        "playstation",
+        "xbox",
+        "gaming",
+        "davido",
+        "wizkid",
+        "burna boy",
+        "tiwa savage",
+        "asake"
+      ],
+      "response": "I appreciate your interest in entertainment! 🎬🎵\n\nHowever, I'm **Gluvia AI**, a specialized nutrition assistant for diabetes management. I'm trained specifically on:\n\n• 🍽️ Nigerian food nutrition data\n• 📊 Diabetes-friendly meal planning\n• ⚖️ Blood sugar management\n• 🥗 Healthy eating guidance\n\nI don't have information about movies, music, or entertainment topics.\n\n**What I CAN help with:**\nWould you like me to suggest a healthy meal or snack? Maybe something to enjoy while watching your favorite show? 😊"
+    },
+    "sports": {
+      "patterns": [
+        "football",
+        "soccer",
+        "basketball",
+        "tennis",
+        "golf",
+        "match",
+        "game score",
+        "scores",
+        "league",
+        "premier league",
+        "champions league",
+        "world cup",
+        "olympics",
+        "fifa",
+        "player",
+        "team",
+        "coach",
+        "stadium",
+        "trophy",
+        "super eagles",
+        "barcelona",
+        "real madrid",
+        "manchester",
+        "arsenal",
+        "chelsea",
+        "liverpool"
+      ],
+      "response": "I see you're interested in sports! ⚽🏀\n\nWhile I can't discuss game scores or team news (I'm a nutrition specialist, not a sports commentator!), I CAN help with:\n\n• 🍽️ **Sports nutrition** for diabetes management\n• 💪 **Pre-workout meals** that won't spike blood sugar\n• 🥤 **Post-exercise recovery** foods\n• ⚡ **Energy-sustaining** diabetes-friendly snacks\n\n**Fun fact:** Exercise is fantastic for blood sugar control!\n\nWould you like nutrition tips for staying active with diabetes?"
+    },
+    "technology": {
+      "patterns": [
+        "code",
+        "coding",
+        "program",
+        "programming",
+        "software",
+        "javascript",
+        "python",
+        "java",
+        "developer",
+        "website",
+        "app",
+        "application",
+        "phone",
+        "iphone",
+        "samsung",
+        "android",
+        "laptop",
+        "computer",
+        "pc",
+        "gadget",
+        "tech",
+        "ai",
+        "artificial intelligence",
+        "chatgpt",
+        "robot",
+        "internet",
+        "wifi",
+        "network",
+        "hacking"
+      ],
+      "response": "Tech questions? I respect the curiosity! 💻\n\nBut I'm **Gluvia AI** - a specialized health assistant, not a tech support bot. My expertise is in:\n\n• 🍽️ Diabetes-friendly Nigerian foods\n• 📊 Nutritional information and meal planning\n• 💡 Blood sugar management strategies\n• ⚖️ Healthy eating for diabetes control\n\n**I can't help with:**\n❌ Coding or programming\n❌ Device troubleshooting\n❌ Software questions\n\n**What I CAN do:**\nSuggest healthy meals, answer nutrition questions, or help plan your diabetic diet!\n\nWhat would you like to eat today? 🥗"
+    },
+    "news_politics": {
+      "patterns": [
+        "news",
+        "politics",
+        "election",
+        "government",
+        "president",
+        "minister",
+        "senate",
+        "house of reps",
+        "politician",
+        "tinubu",
+        "buhari",
+        "atiku",
+        "obi",
+        "pdp",
+        "apc",
+        "economy",
+        "inflation",
+        "naira",
+        "dollar",
+        "exchange rate",
+        "war",
+        "conflict",
+        "protest",
+        "strike"
+      ],
+      "response": "I understand wanting to stay informed about current events! 📰\n\nHowever, I'm **Gluvia AI**, focused exclusively on:\n\n• 🍽️ Diabetes nutrition management\n• 📊 Nigerian food information\n• 💡 Blood sugar control tips\n• ⚖️ Healthy meal planning\n\n**I'm not designed to discuss:**\n❌ Political topics\n❌ News events\n❌ Economic policies\n\n**Why the focus?**\nDiabetes management is complex and important - I stay specialized to give you the best nutrition guidance!\n\n**Instead, how about:**\nA diabetes-friendly meal suggestion? Or nutrition tips for managing your health during stressful times? 🥗"
+    },
+    "weather": {
+      "patterns": [
+        "weather",
+        "temperature",
+        "rain",
+        "raining",
+        "sunny",
+        "cold",
+        "hot",
+        "harmattan",
+        "dry season",
+        "rainy season",
+        "forecast",
+        "climate",
+        "humid"
+      ],
+      "response": "Checking the weather? ☀️🌧️\n\nI'm not a weather service, but I AM your nutrition assistant!\n\n**Fun connection though:**\n\n🌧️ **Rainy days** - Perfect for warm pepper soup (diabetes-friendly protein!)\n☀️ **Hot days** - Stay hydrated, try cucumber or watermelon (in moderation)\n❄️ **Harmattan** - Your body needs extra hydration and warm meals\n\n**What I CAN help with:**\n• Seasonal food recommendations\n• Hydration tips for diabetics\n• Weather-appropriate meal ideas\n\nWould you like meal suggestions for today's weather? 🍲"
+    },
+    "relationships": {
+      "patterns": [
+        "love",
+        "relationship",
+        "dating",
+        "marriage",
+        "boyfriend",
+        "girlfriend",
+        "husband",
+        "wife",
+        "partner",
+        "breakup",
+        "divorce",
+        "single",
+        "crush",
+        "romance",
+        "wedding"
+      ],
+      "response": "Relationship questions? That's thoughtful of you to reach out! 💝\n\nI'm **Gluvia AI** though - a nutrition specialist, not a relationship counselor.\n\n**My expertise is in:**\n• 🍽️ Diabetes meal planning\n• 📊 Nigerian food nutrition\n• 💡 Blood sugar management\n• ⚖️ Healthy eating guidance\n\n**What I CAN offer:**\nMaybe a romantic dinner idea that's diabetes-friendly? 🕯️\n\nI could suggest meals for:\n• 🍝 Date night dinners\n• 🎂 Celebration meals (low-sugar options!)\n• 👨‍👩‍👧‍👦 Family-friendly healthy meals\n\nWould you like meal ideas for a special occasion?"
+    },
+    "travel": {
+      "patterns": [
+        "travel",
+        "flight",
+        "airplane",
+        "airport",
+        "hotel",
+        "vacation",
+        "holiday",
+        "trip",
+        "tourism",
+        "tourist",
+        "visa",
+        "passport",
+        "abroad",
+        "japa",
+        "london",
+        "america",
+        "dubai",
+        "canada",
+        "germany",
+        "uk"
+      ],
+      "response": "Planning a trip? How exciting! ✈️🌍\n\nWhile I can't help with travel bookings, I CAN help you:\n\n**Eat healthy while traveling with diabetes:**\n• 🍱 Pack diabetes-friendly snacks\n• 🥗 Choose safe foods at airports\n• 🌍 Navigate eating abroad\n• ⏰ Manage meal timing across time zones\n\n**Travel tips for diabetics:**\n• Carry snacks for blood sugar emergencies\n• Know low-GI options in different cuisines\n• Stay hydrated during flights\n• Don't skip meals due to schedule changes\n\nWould you like travel-friendly snack suggestions or meal tips for your trip?"
+    },
+    "education": {
+      "patterns": [
+        "math",
+        "mathematics",
+        "calculate",
+        "solve",
+        "equation",
+        "algebra",
+        "geometry",
+        "physics",
+        "chemistry",
+        "biology",
+        "history",
+        "geography",
+        "capital",
+        "country",
+        "population",
+        "school",
+        "university",
+        "exam",
+        "jamb",
+        "waec",
+        "neco",
+        "homework",
+        "assignment",
+        "study"
+      ],
+      "response": "Academic questions? I admire the dedication to learning! 📚\n\nBut I'm **Gluvia AI** - a nutrition specialist, not a tutor.\n\n**My areas of knowledge:**\n• 🍽️ Nigerian food nutrition\n• 📊 Diabetes management\n• ⚖️ Healthy meal planning\n• 💡 Blood sugar control strategies\n\n**I can't help with:**\n❌ Math problems\n❌ Science homework\n❌ History/Geography questions\n❌ Exam preparation\n\n**What I CAN help with:**\n🧠 Brain-boosting foods for studying!\n📖 Meals to maintain focus and energy during exams\n\nWant nutrition tips for better concentration? 🥗"
+    },
+    "shopping": {
+      "patterns": [
+        "buy",
+        "shopping",
+        "shop",
+        "market",
+        "store",
+        "price",
+        "how much",
+        "where to buy",
+        "jumia",
+        "konga",
+        "order",
+        "delivery",
+        "online shopping",
+        "product",
+        "clothes",
+        "shoes",
+        "fashion",
+        "style"
+      ],
+      "response": "Shopping on your mind? 🛒\n\nI'm a nutrition assistant, not a shopping guide, but I CAN help with:\n\n**Food shopping guidance:**\n• 🛒 What to buy at the market for diabetes\n• ✅ How to read nutrition labels\n• 🥬 Best vegetables for blood sugar control\n• 💰 Budget-friendly healthy options\n\n**Market tips for diabetics:**\n• Buy whole grains (ofada rice, oats)\n• Stock up on vegetables (okra, ewedu, ugwu)\n• Choose lean proteins (fish, chicken, beans)\n• Avoid processed foods\n\nWould you like a healthy shopping list for diabetes management? 📝"
+    },
+    "religion": {
+      "patterns": [
+        "god",
+        "jesus",
+        "allah",
+        "church",
+        "mosque",
+        "prayer",
+        "bible",
+        "quran",
+        "pastor",
+        "imam",
+        "religious",
+        "christian",
+        "muslim",
+        "spiritual",
+        "faith",
+        "worship"
+      ],
+      "response": "I respect your spiritual interests! 🙏\n\nAs **Gluvia AI**, I focus on physical health through nutrition, not spiritual matters.\n\n**My expertise:**\n• 🍽️ Diabetes-friendly meals\n• 📊 Nigerian food nutrition\n• ⚖️ Blood sugar management\n• 💡 Healthy eating guidance\n\n**Related help I CAN offer:**\n• 🌙 Ramadan fasting tips for diabetics\n• 🍞 Healthy options during religious feasts\n• ⏰ Meal timing around worship schedules\n\nWould you like nutrition guidance for fasting periods or religious celebrations?"
+    },
+    "finance": {
+      "patterns": [
+        "stock",
+        "stocks",
+        "crypto",
+        "bitcoin",
+        "ethereum",
+        "investment",
+        "investing",
+        "trading",
+        "forex",
+        "bank",
+        "loan",
+        "money",
+        "make money",
+        "rich",
+        "business",
+        "entrepreneur",
+        "startup"
+      ],
+      "response": "Financial questions? I appreciate your ambition! 💰\n\nBut I'm **Gluvia AI** - I deal with food, not finance!\n\n**What I know:**\n• 🍽️ Diabetes nutrition\n• 📊 Nigerian food database\n• ⚖️ Healthy meal planning\n• 💡 Blood sugar management\n\n**Budget-related help I CAN offer:**\n• 💵 Eating healthy on a budget\n• 🛒 Affordable diabetes-friendly foods\n• 📝 Cost-effective meal planning\n\n**Smart investment?**\nYour health! Good nutrition now saves medical costs later.\n\nWant tips for affordable healthy eating? 🥗"
+    },
+    "general_knowledge": {
+      "patterns": [
+        "who is",
+        "who was",
+        "what is",
+        "what was",
+        "when did",
+        "when was",
+        "where is",
+        "where was",
+        "why is",
+        "why was",
+        "how did",
+        "how was",
+        "define",
+        "meaning of",
+        "explain",
+        "tell me about",
+        "history of",
+        "origin of"
+      ],
+      "contextCheck": true,
+      "healthRelated": [
+        "diabetes",
+        "nutrition",
+        "food",
+        "diet",
+        "health",
+        "blood sugar",
+        "meal",
+        "eating",
+        "calorie",
+        "carb",
+        "protein",
+        "fat",
+        "vitamin"
+      ],
+      "response": "That's a great question! 🤔\n\nHowever, I'm **Gluvia AI**, specialized in diabetes nutrition - not a general knowledge assistant.\n\n**I'm trained to answer questions about:**\n• 🍽️ Nigerian foods and their nutrition\n• 📊 Diabetes management through diet\n• ⚖️ Blood sugar and food relationships\n• 💡 Healthy eating strategies\n\n**For general knowledge:**\nYou might want to try a general-purpose AI assistant.\n\n**But if your question relates to:**\n• Food, nutrition, or diet\n• Diabetes or blood sugar\n• Nigerian meals and ingredients\n\n...then I'm your expert! How can I help with your health today? 🥗"
+    },
+    "jokes_entertainment": {
+      "patterns": [
+        "joke",
+        "funny",
+        "humor",
+        "laugh",
+        "lol",
+        "story",
+        "tale",
+        "fiction",
+        "poem",
+        "poetry",
+        "write",
+        "compose",
+        "create story",
+        "tell me a story",
+        "riddle",
+        "puzzle",
+        "trivia"
+      ],
+      "response": "Looking for some fun? 😄\n\nI'm **Gluvia AI** - a nutrition assistant, not a comedian! But I'll try:\n\n**My one food joke:**\n\"Why did the diabetic refuse dessert? Because their glucose meter said 'No weigh!' 😅\"\n\n*Okay, I should stick to nutrition advice!*\n\n**What I'm actually good at:**\n• 🍽️ Delicious diabetes-friendly recipes\n• 📊 Fun food facts (Nigerian foods!)\n• 💡 Making healthy eating enjoyable\n• ⚖️ Meal planning that doesn't feel restrictive\n\nWant me to make healthy eating more fun with tasty meal ideas? 🥗"
+    },
+    "translation": {
+      "patterns": [
+        "translate",
+        "translation",
+        "french",
+        "spanish",
+        "chinese",
+        "german",
+        "arabic",
+        "yoruba",
+        "igbo",
+        "hausa",
+        "language",
+        "how do you say",
+        "what does mean"
+      ],
+      "response": "Translation request? 🌍\n\nI'm **Gluvia AI** - a nutrition specialist, not a translator!\n\n**But I DO know food terms in Nigerian languages:**\n\n🍚 **Yoruba:** Ẹ̀bà, Àmàlà, Ẹ̀fọ́, Ọ̀bẹ̀\n🍲 **Igbo:** Ofe, Akpu, Ukwa, Oha\n🥘 **Hausa:** Tuwo, Miyan Kuka, Masa, Fura\n\n**What I can help with:**\n• Nigerian food names and their nutrition\n• Regional dish variations\n• Traditional meal preparations\n\nWould you like to learn about a specific Nigerian dish? 🥗"
+    }
+  },
+  "regexPatterns": [
+    {
+      "pattern": "who (is|was|are|were) [a-z\\s]+",
+      "type": "person_query",
+      "exception": "who (is|was) gluvia|who made (you|this)"
+    },
+    {
+      "pattern": "when (did|was|is|will) [a-z\\s]+",
+      "type": "time_query",
+      "exception": "when (should|can) i eat|when to (eat|take)"
+    },
+    {
+      "pattern": "where (is|was|are|were|can) [a-z\\s]+",
+      "type": "location_query",
+      "exception": "where (can|to) (buy|get) (food|ingredients)"
+    },
+    {
+      "pattern": "(tell me|what) (about|is) the (news|weather|score)",
+      "type": "info_query"
+    },
+    {
+      "pattern": "how to (code|program|hack|build website)",
+      "type": "tech_query"
+    },
+    {
+      "pattern": "(play|download|stream) (movie|music|song|video)",
+      "type": "media_query"
+    }
+  ],
+  "defaultResponse": {
+    "title": "Thank you for your question! 🙏",
+    "intro": "I'm **Gluvia AI**, an AI assistant specifically designed for **diabetes nutrition management**.",
+    "capabilities": {
+      "title": "**Here's what I'm trained to help with:**",
+      "items": [
+        "🍽️ **Personalized Meal Recommendations** - Based on your health profile",
+        "🥗 **Nigerian Food Nutrition** - Detailed info on local foods",
+        "📊 **Blood Sugar Management** - Tips to keep glucose stable",
+        "⚖️ **Diet Planning** - Diabetes-friendly meal strategies",
+        "🏃 **Lifestyle Advice** - Activity and eating habits for diabetics",
+        "💰 **Budget-Friendly Options** - Healthy eating that fits your wallet",
+        "⚠️ **Food Safety** - What to eat and avoid with diabetes"
+      ]
+    },
+    "limitations": {
+      "title": "**I'm not trained to discuss:**",
+      "items": [
+        "❌ General knowledge (history, geography, etc.)",
+        "❌ Entertainment (movies, music, sports)",
+        "❌ Technology and coding",
+        "❌ News and politics",
+        "❌ Relationships and personal advice",
+        "❌ Financial or business matters"
+      ]
+    },
+    "redirect": "**Let's focus on your health!** 💚\n\nIs there anything related to your diet, meals, blood sugar, or diabetes management I can help you with?\n\n**Quick options:**\n• \"Suggest a breakfast\" 🍳\n• \"Low-GI foods\" 🥬\n• \"Blood sugar tips\" 📊\n• \"What can I snack on?\" 🥜"
+  },
+  "contextualRedirects": {
+    "fromEntertainment": "Speaking of enjoying things, how about I suggest some delicious diabetes-friendly meals you can enjoy? 🍽️",
+    "fromSports": "Since you're interested in staying active, want nutrition tips to fuel your physical activity while managing diabetes? 💪",
+    "fromTravel": "For your travels, I can suggest portable diabetes-friendly snacks and eating strategies! 🧳",
+    "fromShopping": "If you're heading to the market, I can create a healthy shopping list for diabetes management! 🛒",
+    "fromEducation": "For better focus and brain power, I can suggest foods that help concentration while keeping blood sugar stable! 🧠",
+    "fromRelationship": "How about I suggest a romantic diabetes-friendly dinner you could prepare for someone special? 🕯️"
+  },
+  "softOffTopic": {
+    "description": "Questions that seem off-topic but can be redirected to health",
+    "patterns": [
+      "bored",
+      "tired",
+      "stressed",
+      "anxious",
+      "can't sleep",
+      "headache",
+      "sick",
+      "not feeling well",
+      "energy"
+    ],
+    "response": "I hear you! {emotion} can affect your health and eating habits.\n\n**From a nutrition perspective:**\n{nutritionAdvice}\n\n**Would you like:**\n• Meal suggestions to help with {concern}?\n• Tips on eating when you're {state}?\n\nYour wellbeing matters! 💚"
+  },
+  "healthBridgeQuestions": {
+    "description": "Questions that seem off-topic but have health/nutrition answers",
+    "examples": {
+      "energy": {
+        "patterns": ["why am i tired", "no energy", "always sleepy", "fatigue"],
+        "response": "Feeling tired? This could be blood sugar related! 📊\n\n**Nutrition factors that affect energy:**\n• Blood sugar spikes and crashes\n• Skipping meals\n• Dehydration\n• Nutrient deficiencies\n\n**Diabetes-specific tips:**\n• Eat regular, balanced meals\n• Choose low-GI foods for sustained energy\n• Stay hydrated\n• Include protein with every meal\n\nWant me to suggest energy-boosting meals that won't spike your blood sugar?"
+      },
+      "stress": {
+        "patterns": ["stressed", "anxiety", "worried", "nervous"],
+        "response": "Stress can affect blood sugar levels! 😟➡️📊\n\n**The stress-diabetes connection:**\n• Stress hormones raise blood sugar\n• Stress eating can lead to poor choices\n• Poor sleep affects glucose control\n\n**Nutrition strategies for stress:**\n• Magnesium-rich foods (dark leafy greens)\n• Omega-3s (fish, nuts)\n• Complex carbs for stable mood\n• Avoid caffeine and sugar\n\nWould you like meal suggestions that help manage stress while controlling blood sugar?"
+      },
+      "sleep": {
+        "patterns": [
+          "can't sleep",
+          "insomnia",
+          "sleep problems",
+          "not sleeping"
+        ],
+        "response": "Sleep troubles? This connects to diabetes management! 😴\n\n**Sleep and blood sugar:**\n• Poor sleep increases insulin resistance\n• Blood sugar affects sleep quality\n• Late eating disrupts sleep\n\n**Nutrition tips for better sleep:**\n• Don't eat within 2-3 hours of bedtime\n• Avoid caffeine after 2pm\n• Dinner should be light and low-carb\n• Try: warm milk, chamomile tea, turkey\n\nWant dinner suggestions that promote better sleep?"
+      }
+    }
+  }
+}

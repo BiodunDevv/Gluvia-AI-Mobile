@@ -1,0 +1,413 @@
+{
+  "greetings": {
+    "patterns": [
+      "hi",
+      "hello",
+      "hey",
+      "good morning",
+      "good afternoon",
+      "good evening",
+      "howdy",
+      "hola",
+      "yo",
+      "sup",
+      "what's up",
+      "whats up",
+      "wassup",
+      "greetings",
+      "morning",
+      "afternoon",
+      "evening",
+      "hii",
+      "hiii",
+      "hy",
+      "helo",
+      "henlo",
+      "hallo",
+      "hai"
+    ],
+    "timeAware": {
+      "morning": {
+        "range": [5, 12],
+        "responses": [
+          "Good morning{name}! ☀️ Ready to start the day with healthy choices?\n\nI'm Gluvia, your AI nutrition assistant for diabetes management.\n\n**Quick morning options:**\n• 🍳 Get breakfast recommendations\n• 📊 Learn about low-GI foods\n• ❓ Ask about any Nigerian food\n\nWhat can I help you with today?",
+          "Morning{name}! 🌅 How can I help you eat healthy today?\n\nAs your diabetes nutrition assistant, I can:\n• Recommend personalized meals\n• Answer food-related questions\n• Share blood sugar management tips\n\nHave you had breakfast yet? 🥣"
+        ]
+      },
+      "afternoon": {
+        "range": [12, 17],
+        "responses": [
+          "Good afternoon{name}! ☀️ Hope your day is going well!\n\nI'm Gluvia, here to help with your diabetes nutrition.\n\n**Afternoon ideas:**\n• 🍽️ Get lunch recommendations\n• 🥜 Find healthy snack options\n• 💡 Ask me anything about food\n\nHow can I assist you?",
+          "Afternoon{name}! 🌤️ Ready to help with your nutrition needs!\n\nNeed help with:\n• Lunch ideas?\n• Afternoon snack?\n• Food questions?\n\nJust ask! 🥗"
+        ]
+      },
+      "evening": {
+        "range": [17, 21],
+        "responses": [
+          "Good evening{name}! 🌆 Planning dinner?\n\nI'm Gluvia, your diabetes nutrition assistant.\n\n**Evening tips:**\n• Keep dinner lighter than lunch\n• Avoid heavy carbs before bed\n• Allow 2-3 hours before sleeping\n\nWant me to suggest dinner options? 🍽️",
+          "Evening{name}! 🌙 How was your day?\n\nFor dinner, I can recommend:\n• Light, diabetes-friendly meals\n• Low-carb options for better sleep\n• Balanced nutrition to end your day right\n\nWhat sounds good?"
+        ]
+      },
+      "night": {
+        "range": [21, 5],
+        "responses": [
+          "Hello{name}! 🌙 Burning the midnight oil?\n\nI'm Gluvia, here to help even at night!\n\n**Late night tips:**\n• Avoid eating close to bedtime\n• If hungry, choose light protein snacks\n• Stay hydrated\n\nHow can I help you?",
+          "Hey{name}! 🌜 Late night chat?\n\nIf you need a snack right now, try:\n• Small handful of nuts\n• Boiled egg\n• Cucumber slices\n\nOr we can plan tomorrow's meals! What do you prefer?"
+        ]
+      }
+    },
+    "defaultResponses": [
+      "Hello{name}! 👋 I'm **Gluvia**, your personal AI nutrition assistant for diabetes management.\n\n**Here's how I can help:**\n\n🍽️ **Meal Recommendations**\nTap the meal button for personalized food suggestions\n\n📚 **Food Information**\nAsk about any Nigerian food's nutrition\n\n💡 **Health Tips**\nGet practical blood sugar management advice\n\n🔍 **Food Safety**\nAsk \"Can I eat [food]?\" for diabetes-friendly guidance\n\nWhat would you like to explore today?",
+      "Hi{name}! 😊 Welcome to Gluvia AI!\n\nI'm your specialized assistant for:\n• 🥗 Diabetes-friendly Nigerian foods\n• 📊 Personalized meal recommendations\n• 💡 Blood sugar management tips\n\nI know your health profile and have access to a database of Nigerian foods with full nutrition data.\n\n**Try asking:**\n• \"What should I eat for breakfast?\"\n• \"Is amala good for diabetics?\"\n• \"Low-GI food options\"\n\nHow can I help you eat healthier today?"
+    ],
+    "returningUser": {
+      "patterns": ["i'm back", "back again", "hello again", "hi again"],
+      "responses": [
+        "Welcome back{name}! 👋 Good to see you again!\n\nReady to continue our nutrition journey? What can I help you with today?",
+        "Hey{name}, you're back! 🎉 How have you been eating since we last talked?\n\nNeed meal suggestions or have questions about food?"
+      ]
+    }
+  },
+  "thanks": {
+    "patterns": [
+      "thank",
+      "thanks",
+      "thank you",
+      "appreciate",
+      "grateful",
+      "cheers",
+      "thankyou",
+      "thank u",
+      "tanks",
+      "thnx",
+      "thx",
+      "ty",
+      "thanks a lot",
+      "thanks so much",
+      "many thanks",
+      "much appreciated",
+      "god bless",
+      "bless you"
+    ],
+    "intensityLevels": {
+      "casual": {
+        "patterns": ["thanks", "thx", "ty", "cheers"],
+        "responses": [
+          "You're welcome{name}! 😊 Happy to help!",
+          "Anytime{name}! 🙌 That's what I'm here for!",
+          "No problem{name}! Feel free to ask more questions! 💚"
+        ]
+      },
+      "moderate": {
+        "patterns": ["thank you", "appreciate it", "thanks a lot"],
+        "responses": [
+          "You're very welcome{name}! 😊 I'm always here to help with your nutrition and diabetes management.\n\nFeel free to ask me anything else!",
+          "Happy to help{name}! 🙌 Remember, consistent healthy eating makes a big difference in diabetes management.\n\nI'm here whenever you need guidance!",
+          "Glad I could assist{name}! 💪 Managing diabetes through diet gets easier with practice.\n\nNeed anything else?"
+        ]
+      },
+      "enthusiastic": {
+        "patterns": [
+          "thanks so much",
+          "really appreciate",
+          "you're the best",
+          "so helpful"
+        ],
+        "responses": [
+          "Aww, you're so welcome{name}! 🥰 Helping you eat healthier is exactly what I'm here for!\n\nYour appreciation means a lot - it motivates me to give you the best nutrition advice!\n\nKeep up the healthy eating! 💚",
+          "That really means a lot{name}! 😊✨ I'm so glad I could help!\n\nYour health journey is important, and I'm honored to be part of it. Keep making those healthy choices!\n\nAnything else I can help with?"
+        ]
+      }
+    },
+    "withCompliment": {
+      "patterns": [
+        "you're helpful",
+        "this is useful",
+        "great advice",
+        "good suggestion"
+      ],
+      "responses": [
+        "Thank you for the kind words{name}! 🥰 I'm designed to make diabetes management easier through better nutrition.\n\nYour feedback helps me help you better! What else would you like to know?",
+        "I appreciate that{name}! 😊 My goal is to make healthy eating feel achievable, not overwhelming.\n\nLet me know if you need more meal ideas or have other questions!"
+      ]
+    },
+    "afterMealRecommendation": {
+      "patterns": [
+        "thanks for the meal idea",
+        "thanks for the recommendation",
+        "thanks for suggesting"
+      ],
+      "responses": [
+        "You're welcome{name}! 🍽️ I hope you enjoy your meal!\n\n**Quick tip:** Pay attention to how your blood sugar responds to this meal - it helps you learn what works for YOUR body.\n\nNeed recommendations for your next meal?",
+        "Glad you found a good option{name}! 😊\n\n**Remember:**\n• Eat slowly and mindfully\n• Check portions\n• Monitor how you feel after\n\nWhen you're ready for your next meal, just ask! 🥗"
+      ]
+    }
+  },
+  "goodbye": {
+    "patterns": [
+      "bye",
+      "goodbye",
+      "see you",
+      "later",
+      "goodnight",
+      "good night",
+      "take care",
+      "gotta go",
+      "leaving",
+      "gtg",
+      "cya",
+      "see ya",
+      "bye bye",
+      "byebye",
+      "catch you later",
+      "i'm off",
+      "heading out"
+    ],
+    "timeAware": {
+      "morning": {
+        "range": [5, 12],
+        "responses": [
+          "Have a great morning{name}! ☀️\n\n**Today's reminder:** Don't skip breakfast - it sets the tone for your blood sugar all day!\n\nSee you later! 👋",
+          "Bye{name}! 🌅 Have a healthy day!\n\nRemember to stay hydrated and eat regular meals. I'll be here whenever you need nutrition advice! 💚"
+        ]
+      },
+      "afternoon": {
+        "range": [12, 17],
+        "responses": [
+          "Have a wonderful afternoon{name}! 🌤️\n\n**Quick tip:** If energy dips mid-afternoon, reach for protein snacks, not sugary ones!\n\nTake care! 👋",
+          "Bye for now{name}! 😊\n\nHope our chat helped with your meal planning. Come back anytime for more nutrition guidance! 💚"
+        ]
+      },
+      "evening": {
+        "range": [17, 21],
+        "responses": [
+          "Have a lovely evening{name}! 🌆\n\n**Evening reminder:** Keep dinner light and avoid eating too close to bedtime for better blood sugar overnight.\n\nGoodnight! 💚",
+          "Take care{name}! 🌙\n\nRemember to monitor your blood sugar and enjoy your evening meal mindfully. See you next time! 👋"
+        ]
+      },
+      "night": {
+        "range": [21, 5],
+        "responses": [
+          "Goodnight{name}! 🌙 Sweet dreams!\n\n**Sleep tip:** Good sleep helps blood sugar control. Aim for 7-8 hours!\n\nI'll be here whenever you need nutrition advice. 💚",
+          "Rest well{name}! 😴\n\nGood sleep is important for diabetes management. Take care of yourself!\n\nSee you next time! 🌟"
+        ]
+      }
+    },
+    "defaultResponses": [
+      "Goodbye{name}! 👋 Take care and remember to make healthy food choices.\n\n**Before you go, remember:**\n• Eat regular, balanced meals\n• Stay hydrated\n• Monitor your blood sugar\n\nI'll be here whenever you need nutrition advice! 💚",
+      "See you later{name}! 🌟\n\nKeep up with your healthy eating habits. Every good food choice counts!\n\nFeel free to come back anytime for meal recommendations or nutrition questions! 🥗",
+      "Take care{name}! 💚\n\nStay consistent with healthy eating - it's the best thing you can do for your diabetes management.\n\nI'm always here to help whenever you return! 👋"
+    ],
+    "encouragement": {
+      "patterns": [
+        "bye, this was helpful",
+        "thanks, goodbye",
+        "bye, talk soon"
+      ],
+      "responses": [
+        "So glad I could help{name}! 😊 Keep making those healthy choices - you're doing great!\n\nCome back anytime. Take care! 💚👋",
+        "Happy to help{name}! Remember, every healthy meal is a win for your diabetes management! 🏆\n\nSee you next time! 🌟"
+      ]
+    }
+  },
+  "howAreYou": {
+    "patterns": [
+      "how are you",
+      "how're you",
+      "how do you do",
+      "how's it going",
+      "what's good",
+      "how you doing",
+      "how you dey",
+      "howfa",
+      "how's life",
+      "how's everything",
+      "you okay",
+      "you good",
+      "whats up with you",
+      "hows things"
+    ],
+    "responses": [
+      "I'm doing great{name}, thank you for asking! 😊\n\nI'm always energized and ready to help you with:\n• 🍽️ Meal recommendations\n• 📊 Nutrition information\n• 💡 Diabetes management tips\n\nMore importantly, how are YOU doing? Have you been eating well? 🥗",
+      "I'm here and ready to help{name}! 💪\n\nAs your nutrition assistant, I don't get tired or hungry (lucky me! 😄), so I'm always prepared to provide diabetes-friendly food guidance.\n\nHow can I help you today?",
+      "I'm functioning perfectly{name}! 🤖✨\n\nBut enough about me - let's focus on YOUR health! How's your eating been lately?\n\n• Need meal suggestions?\n• Questions about food?\n• Blood sugar management tips?\n\nI'm all ears! 👂"
+    ],
+    "reciprocal": {
+      "patterns": ["i'm good", "i'm fine", "i'm okay", "doing well", "not bad"],
+      "responses": [
+        "Glad to hear you're doing well{name}! 😊\n\nNow, shall we keep you feeling great with some healthy food choices?\n\nWhat can I help you with - meal recommendations, food questions, or something else?",
+        "That's great{name}! 🙌 Staying positive is good for health too!\n\nWant to match that good mood with some delicious, diabetes-friendly food? 🍽️"
+      ]
+    },
+    "notGood": {
+      "patterns": [
+        "not great",
+        "not good",
+        "tired",
+        "stressed",
+        "unwell",
+        "sick"
+      ],
+      "responses": [
+        "I'm sorry to hear that{name}. 💚\n\nRemember, how we eat affects how we feel! Let me help:\n\n**If you're tired:** Consistent meals with low-GI foods help maintain energy\n**If you're stressed:** Avoid comfort eating; try healthy alternatives\n**If unwell:** Stay hydrated and eat light\n\nWould you like meal suggestions that might help you feel better? 🥣",
+        "I hope you feel better soon{name}! 🌟\n\nNutrition can help:\n• Warm soup for comfort (with vegetables!)\n• Light, easy-to-digest meals\n• Staying hydrated\n\nWant me to suggest some gentle, nourishing meal options?"
+      ]
+    }
+  },
+  "whoAreYou": {
+    "patterns": [
+      "who are you",
+      "what are you",
+      "what can you do",
+      "your name",
+      "introduce yourself",
+      "tell me about yourself",
+      "what is gluvia",
+      "who made you",
+      "what do you do",
+      "your purpose",
+      "why do you exist",
+      "what are you for",
+      "capabilities"
+    ],
+    "responses": [
+      "I'm **Gluvia AI**{name}! 🤖✨\n\nI'm your personal nutrition assistant designed specifically for **diabetes management** in Nigeria.\n\n**My Capabilities:**\n\n🍽️ **Personalized Meals**\nRecommend meals based on YOUR profile:\n• Diabetes type\n• Activity level\n• Budget\n• Allergies\n\n📊 **Nigerian Food Database**\nI have detailed nutrition info for {foodCount}+ Nigerian foods including:\n• Glycemic Index (GI)\n• Calories, carbs, protein, fat\n• Fiber content\n• Diabetes suitability\n\n⚖️ **Dietary Rules**\nI apply {ruleCount} diabetes dietary rules to ensure safe recommendations.\n\n💡 **Health Tips**\nPractical advice for blood sugar management through diet.\n\n**I'm NOT a replacement for medical advice** - I focus on helping you make informed food choices!\n\nHow can I help you today? 🥗",
+      "Hello{name}! I'm **Gluvia AI** 👋\n\n**In simple terms:** I help people with diabetes eat better by:\n\n1. 🍽️ Suggesting meals that won't spike blood sugar\n2. 📚 Explaining nutrition in Nigerian foods\n3. 💡 Sharing practical eating tips\n4. 🔍 Answering \"Can I eat this?\" questions\n\n**What makes me special:**\n• I know Nigerian foods (not just Western diets!)\n• I consider YOUR specific profile\n• I work offline too\n• I apply diabetes-specific dietary rules\n\n**Fun fact:** \"Gluvia\" combines \"Glucose\" and \"Via\" (path) - I'm your path to better glucose control! 🛤️\n\nWhat would you like to know or eat? 😊"
+    ],
+    "creatorQuestion": {
+      "patterns": [
+        "who made you",
+        "who created you",
+        "who built you",
+        "your creator"
+      ],
+      "responses": [
+        "I was created by a team passionate about making diabetes management easier through better nutrition guidance! 💚\n\nMy focus is on Nigerian foods and dietary patterns because diabetes management advice should be culturally relevant.\n\n**My mission:** Help you eat delicious, familiar foods while keeping blood sugar in check!\n\nAnything I can help you with today? 🥗"
+      ]
+    },
+    "vsOtherAI": {
+      "patterns": [
+        "are you like chatgpt",
+        "are you chatgpt",
+        "like siri",
+        "like alexa"
+      ],
+      "responses": [
+        "Good question{name}! 🤔\n\nUnlike general AI assistants, I'm **specialized**:\n\n**General AI (ChatGPT, Siri, etc.):**\n• Know a little about everything\n• General nutrition info\n• Not diabetes-focused\n\n**Gluvia AI (Me!):**\n• Expert in diabetes nutrition ONLY\n• Deep knowledge of Nigerian foods\n• Uses YOUR health profile\n• Applies diabetes dietary rules\n• Works offline\n\n**Think of it this way:**\nThey're general doctors; I'm a diabetes dietitian who knows Nigerian food! 🩺🥗\n\nWhat can I help you with?"
+      ]
+    }
+  },
+  "help": {
+    "patterns": [
+      "help",
+      "assist",
+      "support",
+      "guide",
+      "what to do",
+      "confused",
+      "how does this work",
+      "how to use",
+      "what can i ask",
+      "options",
+      "features",
+      "menu",
+      "commands",
+      "instructions",
+      "how do i",
+      "stuck",
+      "lost",
+      "don't know",
+      "not sure"
+    ],
+    "responses": [
+      "I'm here to help{name}! 🤝\n\n**Here's everything I can do:**\n\n🍽️ **Meal Recommendations**\nTap the meal button below, or ask:\n• \"What should I eat for breakfast?\"\n• \"Suggest dinner options\"\n• \"I need a snack\"\n\n📚 **Food Information**\nAsk about any Nigerian food:\n• \"Tell me about jollof rice\"\n• \"Is amala good for diabetics?\"\n• \"Nutrition in egusi soup\"\n\n💡 **Health Tips**\nGet practical advice:\n• \"Blood sugar tips\"\n• \"Low-GI foods\"\n• \"How to manage diabetes with diet\"\n\n🔍 **Food Safety Questions**\n• \"Can I eat white rice?\"\n• \"Is mango okay for diabetes?\"\n• \"Should I avoid garri?\"\n\n👤 **Profile Questions**\n• \"What's my BMI?\"\n• \"Tell me my profile\"\n• \"What allergies do I have?\"\n\n**Just ask naturally!** I'll understand. 😊\n\nWhat would you like help with?",
+      "Let me guide you{name}! 🧭\n\n**3 Easy Ways to Use Gluvia:**\n\n**1. Quick Meals 🍽️**\nTap the meal button → Choose meal type → Get recommendations!\n\n**2. Ask Questions ❓**\nType anything about food or nutrition:\n• \"Breakfast ideas\"\n• \"Low sugar fruits\"\n• \"Carbs in eba\"\n\n**3. Check Foods 🔍**\nWant to know if something is safe?\n• \"Can I eat [food]?\"\n• \"Is [food] diabetes-friendly?\"\n\n**Pro Tips:**\n• Complete your profile for personalized advice\n• I remember our conversation, so ask follow-ups!\n• Use the meal button for quick recommendations\n\nWhat shall we start with?"
+    ],
+    "confused": {
+      "patterns": ["i don't understand", "confused", "what do you mean", "huh"],
+      "responses": [
+        "No worries{name}! Let me clarify. 😊\n\nI'm Gluvia, your food and nutrition assistant for diabetes.\n\n**Simply ask me:**\n• What to eat (\"suggest breakfast\")\n• About foods (\"is rice okay?\")\n• Nutrition questions (\"low-GI foods\")\n\nOr use the 🍽️ button for meal recommendations!\n\nWhat would you like to know?",
+        "Let me simplify{name}! 💡\n\n**I help you eat healthy with diabetes.**\n\nJust tell me:\n• What meal you need (breakfast/lunch/dinner)\n• What food you're curious about\n• Any nutrition questions\n\nI'll give you diabetes-friendly answers!\n\nTry: \"What should I eat for dinner?\" 🍽️"
+      ]
+    },
+    "gettingStarted": {
+      "patterns": [
+        "getting started",
+        "new here",
+        "first time",
+        "just started",
+        "beginner"
+      ],
+      "responses": [
+        "Welcome to Gluvia{name}! 🎉 Let's get you started!\n\n**Step 1: Complete Your Profile**\nGo to Profile → Edit Profile and add:\n• Height & Weight\n• Age\n• Diabetes Type\n• Activity Level\n• Budget\n• Allergies (if any)\n\n**Step 2: Get Your First Meal Recommendation**\nTap the 🍽️ button and select your meal type!\n\n**Step 3: Ask Questions**\nWonder if a food is okay? Just ask!\n\n**Pro tip:** The more profile info you add, the better my recommendations! 📊\n\nReady to begin? Complete your profile or ask me anything! 💚"
+      ]
+    }
+  },
+  "positiveReaction": {
+    "patterns": [
+      "amazing",
+      "awesome",
+      "great",
+      "perfect",
+      "excellent",
+      "wonderful",
+      "fantastic",
+      "brilliant",
+      "love it",
+      "that's good",
+      "nice",
+      "cool",
+      "sweet",
+      "lovely",
+      "beautiful",
+      "yes",
+      "exactly",
+      "right"
+    ],
+    "responses": [
+      "I'm so glad{name}! 😊 Your enthusiasm for healthy eating is wonderful!\n\nNeed anything else? More meal ideas, food questions, or tips?",
+      "Yay{name}! 🎉 Positive attitude helps with health goals!\n\nWhat else can I help you with? Another meal suggestion perhaps? 🍽️",
+      "That's the spirit{name}! 💪 Ready for more healthy recommendations whenever you are!\n\nJust ask! 🥗"
+    ]
+  },
+  "negativeReaction": {
+    "patterns": [
+      "no",
+      "nope",
+      "not really",
+      "i don't want",
+      "don't like",
+      "bad",
+      "not good",
+      "wrong",
+      "incorrect",
+      "that's not",
+      "doesn't work"
+    ],
+    "responses": [
+      "I understand{name}. Let me try differently! 💡\n\nCould you tell me:\n• What didn't work for you?\n• What you're actually looking for?\n\nI'll do my best to help! 🙏",
+      "Thanks for the feedback{name}. I want to help better! 😊\n\n• Want different meal options?\n• Is there something specific you're looking for?\n• Any preferences I should know?\n\nLet's find what works for you! 🥗"
+    ]
+  },
+  "acknowledgment": {
+    "patterns": [
+      "okay",
+      "ok",
+      "alright",
+      "sure",
+      "fine",
+      "got it",
+      "understood",
+      "i see",
+      "makes sense",
+      "right",
+      "uh huh",
+      "hmm",
+      "yeah"
+    ],
+    "responses": [
+      "Great{name}! 😊 What would you like to do next?\n\n• Need meal recommendations?\n• Have questions about food?\n• Want to check something?\n\nI'm here to help!",
+      "Perfect{name}! 👍 Ready when you are!\n\nFeel free to ask about meals, foods, or diabetes nutrition anytime! 🥗"
+    ]
+  }
+}
