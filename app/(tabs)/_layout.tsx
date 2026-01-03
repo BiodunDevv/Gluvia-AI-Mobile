@@ -8,6 +8,7 @@ export default function TabLayout() {
       tabBar={(props) => <AnimatedTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        animation: "shift",
       }}
     >
       <Tabs.Screen
@@ -19,7 +20,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
+          title: "Meals",
         }}
       />
       <Tabs.Screen

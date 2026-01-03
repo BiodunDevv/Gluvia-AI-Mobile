@@ -1,12 +1,17 @@
 ﻿import { AllergiesSection, ProfileHeader } from "@/components/profile";
 import { Button, InfoRow, SectionCard, SectionHeader } from "@/components/ui";
 import { useAuthStore } from "@/store/auth-store";
+import { useSyncStore } from "@/store/sync-store";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Href, router } from "expo-router";
 import {
   Activity,
+  AlertTriangle,
+  ArrowDownCircle,
+  CloudOff,
   DollarSign,
+  Download,
   Globe,
   Heart,
   LogOut,
@@ -14,19 +19,23 @@ import {
   Phone,
   Ruler,
   Scale,
-  Trash2,
   User as UserIcon,
   Users,
+  Wifi,
+  WifiOff,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   Text,
   View,
 } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const DIABETES_TYPES = [
@@ -57,7 +66,23 @@ const SEX_OPTIONS = [
 export default function ProfileScreen() {
   const { user, getProfile, logout, deleteAccount, uploadPhoto, isLoading } =
     useAuthStore();
+  const {
+    clientVersion,
+    serverVersion,
+    lastSyncAt,
+    foods,
+    rules,
+    isSyncing,
+    isOnline,
+    getFullSync,
+    checkAndApplyUpdates,
+    clearAllDataAndReset,
+  } = useSyncStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [isForceSyncing, setIsForceSyncing] = useState(false);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [isClearingData, setIsClearingData] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Refresh profile when screen comes into focus (e.g., after editing)
   useFocusEffect(
@@ -162,6 +187,15 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
+    if (!isOnline) {
+      Alert.alert(
+        "Internet Required",
+        "You need an internet connection to delete your account. Please connect to Wi-Fi or enable mobile data.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     Alert.alert(
       "Delete Account",
       "Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.",
@@ -173,13 +207,14 @@ export default function ProfileScreen() {
           onPress: () => {
             Alert.alert(
               "Confirm Deletion",
-              "Please type DELETE to confirm account deletion.",
+              "This will permanently delete your account and all associated data.",
               [
                 { text: "Cancel", style: "cancel" },
                 {
                   text: "Delete Forever",
                   style: "destructive",
                   onPress: async () => {
+                    setIsDeleting(true);
                     try {
                       await deleteAccount();
                       router.replace("/(auth)/login" as Href);
@@ -188,6 +223,8 @@ export default function ProfileScreen() {
                         "Error",
                         error.message || "Failed to delete account"
                       );
+                    } finally {
+                      setIsDeleting(false);
                     }
                   },
                 },
@@ -197,6 +234,118 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleForceSync = async () => {
+    if (!isOnline) {
+      Alert.alert(
+        "Internet Required",
+        "You need an internet connection to sync data. Please connect to Wi-Fi or enable mobile data.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Force Sync",
+      "This will download all foods and rules data from the server. This may take a moment.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sync Now",
+          onPress: async () => {
+            setIsForceSyncing(true);
+            try {
+              const result = await getFullSync();
+              Alert.alert(
+                "Sync Complete",
+                `Successfully synced ${result.foods.length} foods and ${result.rules.length} rules.\n\nServer Version: ${result.serverVersion}`
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Sync Failed",
+                error.message || "Failed to sync data. Please try again."
+              );
+            } finally {
+              setIsForceSyncing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCheckUpdates = async () => {
+    if (!isOnline) {
+      Alert.alert(
+        "Internet Required",
+        "You need an internet connection to check for updates. Please connect to Wi-Fi or enable mobile data.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    setIsCheckingUpdates(true);
+    try {
+      const result = await checkAndApplyUpdates();
+      if (result.hasChanges) {
+        Alert.alert(
+          "Updates Applied",
+          `Found and applied updates:\n• ${result.foodsUpdated} foods updated\n• ${result.rulesUpdated} rules updated`
+        );
+      } else {
+        Alert.alert("Up to Date", "Your data is already up to date!");
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Check Failed",
+        error.message || "Failed to check for updates. Please try again."
+      );
+    } finally {
+      setIsCheckingUpdates(false);
+    }
+  };
+
+  const handleClearAllData = () => {
+    Alert.alert(
+      "Clear All Cached Data",
+      "This will remove all cached foods, rules, and pending logs. You will need to sync again to use the app.\n\nAre you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Data",
+          style: "destructive",
+          onPress: async () => {
+            setIsClearingData(true);
+            try {
+              await clearAllDataAndReset();
+              Alert.alert(
+                "Data Cleared",
+                "All cached data has been cleared. Please sync to download fresh data."
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Error",
+                error.message || "Failed to clear data. Please try again."
+              );
+            } finally {
+              setIsClearingData(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatSyncDate = (dateString?: string | null) => {
+    if (!dateString) return "Never";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const formatDate = (dateString?: string) => {
@@ -239,11 +388,7 @@ export default function ProfileScreen() {
           />
 
           {/* Edit Profile Button */}
-          <Button
-            onPress={handleEditProfile}
-            className="mb-6"
-            loading={isLoading}
-          >
+          <Button onPress={handleEditProfile} className="mb-6">
             Edit Profile
           </Button>
         </View>
@@ -344,41 +489,224 @@ export default function ProfileScreen() {
           </SectionCard>
         </View>
 
+        {/* Data & Sync Section */}
+        <View className="px-6 mb-4">
+          <SectionHeader title="Data & Sync" />
+
+          {/* Network Status Banner */}
+          <Animated.View entering={FadeIn} className="mb-3">
+            <View
+              className={`flex-row items-center px-4 py-3 rounded-xl ${
+                isOnline ? "bg-green-50" : "bg-amber-50"
+              }`}
+            >
+              {isOnline ? (
+                <Wifi size={18} color="#22c55e" />
+              ) : (
+                <WifiOff size={18} color="#f59e0b" />
+              )}
+              <Text
+                className={`ml-2 text-sm font-medium ${
+                  isOnline ? "text-green-700" : "text-amber-700"
+                }`}
+              >
+                {isOnline ? "Connected to Internet" : "Offline Mode"}
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Sync Status Card */}
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-3">
+            <View className="p-4 bg-gray-50">
+              <View className="flex-row justify-between items-center">
+                <View className="flex-row items-center">
+                  <View
+                    className={`w-3 h-3 rounded-full mr-2 ${
+                      clientVersion > 0 ? "bg-green-500" : "bg-yellow-500"
+                    }`}
+                  />
+                  <Text className="text-base font-semibold text-gray-800">
+                    {clientVersion > 0 ? "Data Synced" : "Sync Required"}
+                  </Text>
+                </View>
+                <Text className="text-xs text-gray-500">
+                  v{clientVersion || 0}
+                </Text>
+              </View>
+            </View>
+            <View className="p-4">
+              <View className="flex-row justify-between mb-2">
+                <View className="flex-1">
+                  <Text className="text-xs text-gray-400 mb-1">Last Sync</Text>
+                  <Text className="text-sm font-medium text-gray-700">
+                    {formatSyncDate(lastSyncAt)}
+                  </Text>
+                </View>
+                <View className="flex-1 items-center">
+                  <Text className="text-xs text-gray-400 mb-1">Foods</Text>
+                  <Text className="text-sm font-medium text-gray-700">
+                    {foods.length}
+                  </Text>
+                </View>
+                <View className="flex-1 items-end">
+                  <Text className="text-xs text-gray-400 mb-1">Rules</Text>
+                  <Text className="text-sm font-medium text-gray-700">
+                    {rules.length}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Action Buttons Grid */}
+          <View className="flex-row gap-3 mb-3">
+            {/* Check Updates Button */}
+            <Pressable
+              onPress={handleCheckUpdates}
+              disabled={
+                isCheckingUpdates ||
+                isSyncing ||
+                clientVersion === 0 ||
+                !isOnline
+              }
+              className={`flex-1 bg-white rounded-2xl border border-gray-100 p-4 ${
+                isCheckingUpdates ||
+                isSyncing ||
+                clientVersion === 0 ||
+                !isOnline
+                  ? "opacity-50"
+                  : ""
+              }`}
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View className="items-center">
+                <View className="w-12 h-12 rounded-xl bg-blue-50 items-center justify-center mb-3">
+                  {isCheckingUpdates ? (
+                    <ActivityIndicator size="small" color="#1447e6" />
+                  ) : (
+                    <ArrowDownCircle size={24} color="#1447e6" />
+                  )}
+                </View>
+                <Text className="text-sm font-semibold text-gray-800 text-center">
+                  Check Updates
+                </Text>
+                <Text className="text-xs text-gray-400 text-center mt-1">
+                  Find new data
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Force Sync Button */}
+            <Pressable
+              onPress={handleForceSync}
+              disabled={isForceSyncing || isSyncing || !isOnline}
+              className={`flex-1 bg-white rounded-2xl border border-gray-100 p-4 ${
+                isForceSyncing || isSyncing || !isOnline ? "opacity-50" : ""
+              }`}
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View className="items-center">
+                <View className="w-12 h-12 rounded-xl bg-amber-50 items-center justify-center mb-3">
+                  {isForceSyncing ? (
+                    <ActivityIndicator size="small" color="#f59e0b" />
+                  ) : (
+                    <Download size={24} color="#f59e0b" />
+                  )}
+                </View>
+                <Text className="text-sm font-semibold text-gray-800 text-center">
+                  Force Sync
+                </Text>
+                <Text className="text-xs text-gray-400 text-center mt-1">
+                  Re-download all
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Clear Cache Button */}
+          <Pressable
+            onPress={handleClearAllData}
+            disabled={isClearingData || isSyncing}
+            className={`bg-white rounded-2xl border border-gray-100 p-4 ${
+              isClearingData || isSyncing ? "opacity-50" : ""
+            }`}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                <View className="w-10 h-10 rounded-xl bg-gray-100 items-center justify-center mr-3">
+                  {isClearingData ? (
+                    <ActivityIndicator size="small" color="#6b7280" />
+                  ) : (
+                    <CloudOff size={20} color="#6b7280" />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-gray-700">
+                    Clear Cached Data
+                  </Text>
+                  <Text className="text-xs text-gray-400">
+                    Remove all local data and start fresh
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        </View>
+
         {/* Account Info */}
-        <View className="px-6 ">
-          <SectionCard className="p-4">
-            <Text className="text-xs text-gray-400 text-center">
+        <View className="px-6 mb-4">
+          <View className="bg-gray-50 rounded-2xl p-4">
+            <Text className="text-xs text-gray-500 text-center">
               Member since {formatDate(user?.createdAt)}
             </Text>
-          </SectionCard>
+          </View>
         </View>
 
         {/* Sign Out Button */}
-        <View className="px-6 py-4">
-          <Button
-            variant="secondary"
+        <View className="px-6 mb-3">
+          <Pressable
             onPress={handleLogout}
-            icon={<LogOut size={20} color="#ef4444" />}
-            iconPosition="left"
+            className="bg-red-50 rounded-2xl p-4 flex-row items-center justify-center"
           >
-            <Text className="text-red-500 font-semibold">Sign Out</Text>
-          </Button>
+            <LogOut size={20} color="#ef4444" />
+            <Text className="text-red-500 font-semibold ml-2">Sign Out</Text>
+          </Pressable>
         </View>
 
-        {/* Delete Account Button */}
-        <View className="px-6 pb-4">
-          <Button
-            variant="ghost"
+        {/* Delete Account Section */}
+        <View className="px-6 mb-6">
+          <Pressable
             onPress={handleDeleteAccount}
-            icon={<Trash2 size={18} color="#9ca3af" />}
-            iconPosition="left"
+            disabled={isDeleting}
+            className="flex-row items-center justify-center py-3"
           >
-            <Text className="text-gray-400 text-sm">Delete Account</Text>
-          </Button>
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#9ca3af" />
+            ) : (
+              <>
+                <AlertTriangle size={16} color="#9ca3af" />
+                <Text className="text-gray-400 text-sm ml-2">
+                  Delete Account
+                </Text>
+              </>
+            )}
+          </Pressable>
         </View>
 
         {/* App Version */}
-        <View className="px-6">
+        <View className="px-6 pb-6">
           <Text className="text-center text-xs text-gray-400">
             Gluvia v1.0.0
           </Text>

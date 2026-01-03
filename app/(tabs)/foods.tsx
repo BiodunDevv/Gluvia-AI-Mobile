@@ -1,12 +1,12 @@
+import { FoodDetailModal } from "@/components/modals";
 import { Food, useFoodStore } from "@/store/food-store";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -16,6 +16,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Fisher-Yates shuffle algorithm for randomizing foods
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 // GI badge component
 const GIBadge = ({
@@ -119,9 +129,14 @@ const FoodImage = ({
   const [hasError, setHasError] = useState(false);
   const isLarge = size === "large";
 
+  // Use explicit dimensions for expo-image
+  const dimensions = isLarge
+    ? { width: "100%" as const, height: 192 }
+    : { width: 64, height: 64 };
+
   const containerClass = isLarge
-    ? "w-full h-48 rounded-xl mb-4"
-    : "w-16 h-16 rounded-lg";
+    ? "w-full h-48 rounded-xl mb-4 overflow-hidden"
+    : "w-16 h-16 rounded-lg overflow-hidden";
 
   // Placeholder icon based on category
   const getPlaceholderIcon = () => {
@@ -153,13 +168,15 @@ const FoodImage = ({
   }
 
   return (
-    <Image
-      source={{ uri: imageUrl }}
-      className={containerClass}
-      contentFit="cover"
-      transition={200}
-      onError={() => setHasError(true)}
-    />
+    <View className={containerClass}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={dimensions}
+        contentFit="cover"
+        transition={200}
+        onError={() => setHasError(true)}
+      />
+    </View>
   );
 };
 
@@ -241,264 +258,7 @@ const FoodCard = ({
   );
 };
 
-// Food detail modal
-const FoodDetailModal = ({
-  food,
-  visible,
-  onClose,
-}: {
-  food: Food | null;
-  visible: boolean;
-  onClose: () => void;
-}) => {
-  if (!food) return null;
-
-  const gi = food.nutrients.gi;
-  const giLabel =
-    gi === null
-      ? "Glycemic index not available"
-      : gi < 55
-        ? "Low GI - Good for blood sugar control ✅"
-        : gi < 70
-          ? "Medium GI - Eat in moderation ⚠️"
-          : "High GI - Limit portions and pair with protein ⚠️";
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView className="flex-1 bg-white">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onClose();
-            }}
-            className="p-2 -ml-2"
-          >
-            <Ionicons name="close" size={24} color="#374151" />
-          </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">
-            Food Details
-          </Text>
-          <View className="w-8" />
-        </View>
-
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          <View className="px-5 py-4">
-            {/* Food image */}
-            <FoodImage
-              imageUrl={food.imageUrl}
-              category={food.category}
-              size="large"
-            />
-
-            {/* Food name */}
-            <Text className="text-2xl font-bold text-gray-900 mb-1">
-              {food.localName}
-            </Text>
-            {food.canonicalName && food.canonicalName !== food.localName && (
-              <Text className="text-sm text-gray-500 mb-3">
-                Also known as: {food.canonicalName}
-              </Text>
-            )}
-
-            {/* Badges */}
-            <View className="flex-row flex-wrap gap-2 mb-5">
-              <GIBadge gi={food.nutrients.gi} size="large" />
-              <CategoryBadge category={food.category} size="large" />
-              {food.affordability && (
-                <View className="bg-blue-100 px-3 py-1 rounded-full">
-                  <Text className="text-xs text-blue-700 font-medium capitalize">
-                    {food.affordability} cost
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Nutrition info */}
-            <Text className="text-lg font-bold text-gray-900 mb-3">
-              Nutrition per 100g
-            </Text>
-            <View className="bg-gray-50 rounded-2xl p-4 mb-5">
-              <View className="flex-row flex-wrap">
-                <View className="w-1/2 mb-4">
-                  <Text className="text-xs text-gray-500 mb-0.5">Calories</Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.calories}
-                    <Text className="text-sm font-normal text-gray-400">
-                      {" "}
-                      kcal
-                    </Text>
-                  </Text>
-                </View>
-                <View className="w-1/2 mb-4">
-                  <Text className="text-xs text-gray-500 mb-0.5">
-                    Carbohydrates
-                  </Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.carbs_g}
-                    <Text className="text-sm font-normal text-gray-400">
-                      {" "}
-                      g
-                    </Text>
-                  </Text>
-                </View>
-                <View className="w-1/2 mb-4">
-                  <Text className="text-xs text-gray-500 mb-0.5">Protein</Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.protein_g}
-                    <Text className="text-sm font-normal text-gray-400">
-                      {" "}
-                      g
-                    </Text>
-                  </Text>
-                </View>
-                <View className="w-1/2 mb-4">
-                  <Text className="text-xs text-gray-500 mb-0.5">Fat</Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.fat_g}
-                    <Text className="text-sm font-normal text-gray-400">
-                      {" "}
-                      g
-                    </Text>
-                  </Text>
-                </View>
-                <View className="w-1/2">
-                  <Text className="text-xs text-gray-500 mb-0.5">Fiber</Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.fibre_g}
-                    <Text className="text-sm font-normal text-gray-400">
-                      {" "}
-                      g
-                    </Text>
-                  </Text>
-                </View>
-                <View className="w-1/2">
-                  <Text className="text-xs text-gray-500 mb-0.5">
-                    Glycemic Index
-                  </Text>
-                  <Text className="text-xl font-bold text-gray-900">
-                    {food.nutrients.gi ?? "N/A"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* GI Interpretation */}
-            <View
-              className={`rounded-2xl p-4 mb-5 ${
-                gi === null
-                  ? "bg-gray-50"
-                  : gi < 55
-                    ? "bg-green-50"
-                    : gi < 70
-                      ? "bg-yellow-50"
-                      : "bg-red-50"
-              }`}
-            >
-              <View className="flex-row items-start">
-                <Ionicons
-                  name={
-                    gi === null
-                      ? "help-circle"
-                      : gi < 55
-                        ? "checkmark-circle"
-                        : "warning"
-                  }
-                  size={20}
-                  color={
-                    gi === null
-                      ? "#6b7280"
-                      : gi < 55
-                        ? "#16a34a"
-                        : gi < 70
-                          ? "#ca8a04"
-                          : "#dc2626"
-                  }
-                  style={{ marginTop: 2 }}
-                />
-                <Text
-                  className={`ml-2 text-sm font-medium flex-1 ${
-                    gi === null
-                      ? "text-gray-700"
-                      : gi < 55
-                        ? "text-green-700"
-                        : gi < 70
-                          ? "text-yellow-700"
-                          : "text-red-700"
-                  }`}
-                >
-                  {giLabel}
-                </Text>
-              </View>
-            </View>
-
-            {/* Portion sizes */}
-            {food.portionSizes && food.portionSizes.length > 0 && (
-              <>
-                <Text className="text-lg font-bold text-gray-900 mb-3">
-                  Portion Sizes
-                </Text>
-                <View className="bg-gray-50 rounded-2xl p-4 mb-5">
-                  {food.portionSizes.map((portion, index) => (
-                    <View
-                      key={index}
-                      className={`flex-row justify-between py-2.5 ${
-                        index < food.portionSizes.length - 1
-                          ? "border-b border-gray-200"
-                          : ""
-                      }`}
-                    >
-                      <Text className="text-sm text-gray-700 capitalize">
-                        {portion.name}
-                      </Text>
-                      <Text className="text-sm font-semibold text-gray-900">
-                        {portion.grams}g
-                        {portion.carbs_g !== undefined && (
-                          <Text className="font-normal text-gray-500">
-                            {" "}
-                            ({portion.carbs_g}g carbs)
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* Tags */}
-            {food.tags && food.tags.length > 0 && (
-              <>
-                <Text className="text-lg font-bold text-gray-900 mb-3">
-                  Tags
-                </Text>
-                <View className="flex-row flex-wrap gap-2 mb-6">
-                  {food.tags.map((tag, index) => (
-                    <View
-                      key={index}
-                      className="bg-primary/10 px-3 py-1.5 rounded-full"
-                    >
-                      <Text className="text-xs text-primary font-medium">
-                        {tag}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-};
-
+// Filter options
 // Filter options
 const CATEGORIES = [
   "All",
@@ -531,6 +291,17 @@ export default function FoodsScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [shuffledFoods, setShuffledFoods] = useState<Food[]>([]);
+  const searchInputRef = useRef<TextInput>(null);
+
+  // Shuffle foods when they change
+  useEffect(() => {
+    if (foods.length > 0) {
+      setShuffledFoods(shuffleArray(foods));
+    } else {
+      setShuffledFoods([]);
+    }
+  }, [foods]);
 
   // Initial load
   useEffect(() => {
@@ -649,176 +420,170 @@ export default function FoodsScreen() {
     (selectedGI !== undefined ? 1 : 0) +
     (appliedSearch ? 1 : 0);
 
-  const renderHeader = () => (
-    <View className="px-4 pb-4">
-      {/* Search bar with button */}
-      <View className="flex-row items-center mb-3">
-        <View className="flex-1 flex-row items-center bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100">
-          <Ionicons name="search" size={20} color="#9ca3af" />
-          <TextInput
-            className="flex-1 ml-3 text-gray-900 text-base"
-            placeholder="Search foods..."
-            placeholderTextColor="#9ca3af"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={handleClearSearch} className="p-1">
-              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+  // Memoized header content (without search bar to avoid focus issues)
+  const ListHeader = useMemo(
+    () => (
+      <View className="px-4 pb-4">
+        {/* Active search indicator */}
+        {appliedSearch && (
+          <View className="flex-row items-center bg-primary/10 rounded-lg px-3 py-2 mb-3">
+            <Ionicons name="search" size={14} color="#1447e6" />
+            <Text
+              className="flex-1 ml-2 text-sm text-primary font-medium"
+              numberOfLines={1}
+            >
+              Results for "{appliedSearch}"
+            </Text>
+            <TouchableOpacity onPress={handleClearSearch}>
+              <Ionicons name="close" size={18} color="#1447e6" />
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
+
+        {/* Filter toggle */}
         <TouchableOpacity
-          onPress={handleSearch}
-          className="ml-2 bg-primary px-4 py-3 rounded-xl shadow-sm"
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowFilters(!showFilters);
+          }}
+          className="flex-row items-center justify-between bg-white rounded-xl px-4 py-3 mb-3 shadow-sm border border-gray-100"
           activeOpacity={0.7}
         >
-          <Ionicons name="search" size={20} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Active search indicator */}
-      {appliedSearch && (
-        <View className="flex-row items-center bg-primary/10 rounded-lg px-3 py-2 mb-3">
-          <Ionicons name="search" size={14} color="#1447e6" />
-          <Text
-            className="flex-1 ml-2 text-sm text-primary font-medium"
-            numberOfLines={1}
-          >
-            Results for "{appliedSearch}"
-          </Text>
-          <TouchableOpacity onPress={handleClearSearch}>
-            <Ionicons name="close" size={18} color="#1447e6" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Filter toggle */}
-      <TouchableOpacity
-        onPress={() => {
-          Haptics.selectionAsync();
-          setShowFilters(!showFilters);
-        }}
-        className="flex-row items-center justify-between bg-white rounded-xl px-4 py-3 mb-3 shadow-sm border border-gray-100"
-        activeOpacity={0.7}
-      >
-        <View className="flex-row items-center">
-          <Ionicons name="options-outline" size={18} color="#1447e6" />
-          <Text className="ml-2 text-gray-700 font-medium">Filters</Text>
-          {activeFilterCount > 0 && (
-            <View className="bg-primary ml-2 w-5 h-5 rounded-full items-center justify-center">
-              <Text className="text-[10px] text-white font-bold">
-                {activeFilterCount}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Ionicons
-          name={showFilters ? "chevron-up" : "chevron-down"}
-          size={18}
-          color="#6b7280"
-        />
-      </TouchableOpacity>
-
-      {/* Filters panel */}
-      {showFilters && (
-        <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100">
-          {/* Categories */}
-          <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-sm font-semibold text-gray-700">
-              Category
-            </Text>
-            {hasActiveFilters && (
-              <TouchableOpacity onPress={handleClearFilters}>
-                <Text className="text-xs text-primary font-medium">
-                  Clear all
+          <View className="flex-row items-center">
+            <Ionicons name="options-outline" size={18} color="#1447e6" />
+            <Text className="ml-2 text-gray-700 font-medium">Filters</Text>
+            {activeFilterCount > 0 && (
+              <View className="bg-primary ml-2 w-5 h-5 rounded-full items-center justify-center">
+                <Text className="text-[10px] text-white font-bold">
+                  {activeFilterCount}
                 </Text>
-              </TouchableOpacity>
+              </View>
             )}
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-4 -mx-1"
-          >
-            <View className="flex-row gap-2 px-1">
-              {CATEGORIES.map((category) => (
+          <Ionicons
+            name={showFilters ? "chevron-up" : "chevron-down"}
+            size={18}
+            color="#6b7280"
+          />
+        </TouchableOpacity>
+
+        {/* Filters panel */}
+        {showFilters && (
+          <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100">
+            {/* Categories */}
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-semibold text-gray-700">
+                Category
+              </Text>
+              {hasActiveFilters && (
+                <TouchableOpacity onPress={handleClearFilters}>
+                  <Text className="text-xs text-primary font-medium">
+                    Clear all
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-4 -mx-1"
+            >
+              <View className="flex-row gap-2 px-1">
+                {CATEGORIES.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    onPress={() => handleCategorySelect(category)}
+                    className={`px-4 py-2 rounded-full ${
+                      selectedCategory === category
+                        ? "bg-primary"
+                        : "bg-gray-100"
+                    }`}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      className={`text-sm font-medium ${
+                        selectedCategory === category
+                          ? "text-white"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* GI Filter */}
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Glycemic Index
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {GI_FILTERS.map((filter) => (
                 <TouchableOpacity
-                  key={category}
-                  onPress={() => handleCategorySelect(category)}
+                  key={filter.label}
+                  onPress={() => handleGISelect(filter.value)}
                   className={`px-4 py-2 rounded-full ${
-                    selectedCategory === category ? "bg-primary" : "bg-gray-100"
+                    selectedGI === filter.value ? "bg-primary" : "bg-gray-100"
                   }`}
                   activeOpacity={0.7}
                 >
                   <Text
                     className={`text-sm font-medium ${
-                      selectedCategory === category
+                      selectedGI === filter.value
                         ? "text-white"
                         : "text-gray-700"
                     }`}
                   >
-                    {category}
+                    {filter.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </ScrollView>
-
-          {/* GI Filter */}
-          <Text className="text-sm font-semibold text-gray-700 mb-2">
-            Glycemic Index
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {GI_FILTERS.map((filter) => (
-              <TouchableOpacity
-                key={filter.label}
-                onPress={() => handleGISelect(filter.value)}
-                className={`px-4 py-2 rounded-full ${
-                  selectedGI === filter.value ? "bg-primary" : "bg-gray-100"
-                }`}
-                activeOpacity={0.7}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    selectedGI === filter.value ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
           </View>
-        </View>
-      )}
-
-      {/* Results summary */}
-      <View className="flex-row items-center justify-between bg-gray-100/50 rounded-lg px-3 py-2">
-        <View className="flex-row items-center">
-          {isOffline && (
-            <View className="flex-row items-center mr-2 bg-amber-100 px-2 py-0.5 rounded-full">
-              <Ionicons name="cloud-offline" size={12} color="#d97706" />
-              <Text className="text-[10px] text-amber-700 font-medium ml-1">
-                Offline
-              </Text>
-            </View>
-          )}
-          <Text className="text-sm text-gray-600">
-            <Text className="font-semibold">
-              {pagination?.total || foods.length}
-            </Text>{" "}
-            food{(pagination?.total || foods.length) !== 1 ? "s" : ""}
-          </Text>
-        </View>
-        {pagination && pagination.totalPages > 1 && (
-          <Text className="text-xs text-gray-500">
-            Page {pagination.page} of {pagination.totalPages}
-          </Text>
         )}
+
+        {/* Results summary */}
+        <View className="flex-row items-center justify-between bg-gray-100/50 rounded-lg px-3 py-2">
+          <View className="flex-row items-center">
+            {isOffline && (
+              <View className="flex-row items-center mr-2 bg-amber-100 px-2 py-0.5 rounded-full">
+                <Ionicons name="cloud-offline" size={12} color="#d97706" />
+                <Text className="text-[10px] text-amber-700 font-medium ml-1">
+                  Offline
+                </Text>
+              </View>
+            )}
+            <Text className="text-sm text-gray-600">
+              <Text className="font-semibold">
+                {pagination?.total || shuffledFoods.length}
+              </Text>{" "}
+              food{(pagination?.total || shuffledFoods.length) !== 1 ? "s" : ""}
+            </Text>
+          </View>
+          {pagination && pagination.totalPages > 1 && (
+            <Text className="text-xs text-gray-500">
+              Page {pagination.page} of {pagination.totalPages}
+            </Text>
+          )}
+        </View>
       </View>
-    </View>
+    ),
+    [
+      appliedSearch,
+      showFilters,
+      selectedCategory,
+      selectedGI,
+      hasActiveFilters,
+      activeFilterCount,
+      isOffline,
+      pagination,
+      shuffledFoods.length,
+      handleClearSearch,
+      handleClearFilters,
+      handleCategorySelect,
+      handleGISelect,
+    ]
   );
 
   const renderFooter = () => {
@@ -832,7 +597,9 @@ export default function FoodsScreen() {
         <View className="flex-row items-center justify-center mb-3">
           <Text className="text-sm text-gray-500">
             Showing{" "}
-            <Text className="font-semibold text-gray-700">{foods.length}</Text>{" "}
+            <Text className="font-semibold text-gray-700">
+              {shuffledFoods.length}
+            </Text>{" "}
             of{" "}
             <Text className="font-semibold text-gray-700">
               {pagination.total}
@@ -906,12 +673,12 @@ export default function FoodsScreen() {
         <Ionicons name="nutrition-outline" size={48} color="#9ca3af" />
       </View>
       <Text className="text-lg font-semibold text-gray-700 mb-2">
-        No foods found
+        {hasActiveFilters ? "No foods found" : "No Food Data Available"}
       </Text>
       <Text className="text-sm text-gray-500 text-center mb-6">
         {hasActiveFilters
           ? "Try adjusting your search or filters to find what you're looking for"
-          : "Foods will appear here once loaded"}
+          : "Go to Profile → Data & Sync to download food data"}
       </Text>
       {hasActiveFilters && (
         <TouchableOpacity
@@ -949,18 +716,51 @@ export default function FoodsScreen() {
         </View>
       </View>
 
+      {/* Search bar - Outside FlatList to prevent focus issues */}
+      <View className="px-4 pb-3 bg-gray-50">
+        <View className="flex-row items-center">
+          <View className="flex-1 flex-row items-center bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100">
+            <Ionicons name="search" size={20} color="#9ca3af" />
+            <TextInput
+              ref={searchInputRef}
+              className="flex-1 ml-3 text-gray-900 text-base"
+              placeholder="Search foods..."
+              placeholderTextColor="#9ca3af"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch} className="p-1">
+                <Ionicons name="close-circle" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={handleSearch}
+            className="ml-2 bg-primary px-4 py-3 rounded-xl shadow-sm"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="search" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Food list */}
       <FlatList
-        data={foods}
+        data={shuffledFoods}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <FoodCard food={item} onPress={handleFoodPress} />
         )}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={ListHeader}
         ListEmptyComponent={!isLoading ? renderEmpty : null}
         ListFooterComponent={renderFooter}
         contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

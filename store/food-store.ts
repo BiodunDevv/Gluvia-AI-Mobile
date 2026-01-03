@@ -1,13 +1,12 @@
-import { api } from "@/lib/api";
 import {
   CachedFood,
-  cacheFoods,
   getCachedFoodById,
   getCachedFoods,
   getCachedFoodsCount,
 } from "@/lib/offline-db";
 import { toast } from "@/lib/toast";
 import { create } from "zustand";
+import { useSyncStore } from "./sync-store";
 
 interface Food {
   _id: string;
@@ -101,33 +100,6 @@ function cachedToFood(cached: CachedFood): Food {
   };
 }
 
-// Convert API Food to cached format (handles _id from API)
-function foodToCached(food: Food): CachedFood {
-  return {
-    id: food._id,
-    localName: food.localName,
-    canonicalName: food.canonicalName,
-    category: food.category,
-    nutrients: food.nutrients,
-    portionSizes: food.portionSizes,
-    affordability: food.affordability,
-    tags: food.tags,
-    imageUrl: food.imageUrl,
-    regionVariants: food.regionVariants,
-    source: food.source,
-    version: food.version,
-    deleted: food.deleted,
-    createdAt: food.createdAt,
-    updatedAt: food.updatedAt,
-  };
-}
-
-// Export function to get all cached foods for offline recommendations
-export async function getAllCachedFoodsForRecommendation(): Promise<Food[]> {
-  const cachedFoods = await getCachedFoods();
-  return cachedFoods.map(cachedToFood);
-}
-
 // Export Food type for use in other modules
 export type { Food };
 
@@ -143,36 +115,67 @@ export const useFoodStore = create<FoodState>((set, get) => ({
     set({ isLoading: true });
     try {
       const mergedFilters = { ...get().filters, ...filters };
-      const params = new URLSearchParams();
 
-      Object.entries(mergedFilters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          params.append(key, String(value));
+      // Get foods from sync store first
+      const syncedFoods = useSyncStore.getState().foods;
+      console.log(`[FOOD-STORE] Synced foods count: ${syncedFoods.length}`);
+
+      // If sync store has foods, use them directly
+      if (syncedFoods.length > 0) {
+        // Apply filters locally
+        let filteredFoods = syncedFoods;
+        if (mergedFilters.search) {
+          const searchLower = mergedFilters.search.toLowerCase();
+          filteredFoods = filteredFoods.filter(
+            (f) =>
+              f.localName.toLowerCase().includes(searchLower) ||
+              f.canonicalName?.toLowerCase().includes(searchLower)
+          );
         }
-      });
+        if (mergedFilters.category) {
+          filteredFoods = filteredFoods.filter(
+            (f) => f.category === mergedFilters.category
+          );
+        }
+        if (mergedFilters.maxGI) {
+          filteredFoods = filteredFoods.filter(
+            (f) =>
+              f.nutrients.gi !== null && f.nutrients.gi <= mergedFilters.maxGI!
+          );
+        }
+        if (mergedFilters.affordability) {
+          filteredFoods = filteredFoods.filter(
+            (f) => f.affordability === mergedFilters.affordability
+          );
+        }
 
-      // Determine if we should append (for pagination) or replace
-      const currentPage = mergedFilters.page || 1;
-      const shouldAppend = append && currentPage > 1;
+        // Pagination
+        const page = mergedFilters.page || 1;
+        const limit = mergedFilters.limit || 20;
+        const start = (page - 1) * limit;
+        const paginatedFoods = filteredFoods.slice(start, start + limit);
 
-      try {
-        // Try API first
-        const response = await api.get(`/foods?${params.toString()}`);
-        const newFoods = response.data.data || [];
-
-        // Cache foods for offline use
-        await cacheFoods(newFoods.map(foodToCached));
-
-        set((state) => ({
-          foods: shouldAppend ? [...state.foods, ...newFoods] : newFoods,
-          pagination: response.data.pagination,
+        set({
+          foods: append ? [...get().foods, ...paginatedFoods] : paginatedFoods,
+          pagination: {
+            page,
+            limit,
+            total: filteredFoods.length,
+            totalPages: Math.ceil(filteredFoods.length / limit),
+          },
           filters: mergedFilters,
           isLoading: false,
           isOffline: false,
-        }));
-      } catch (apiError) {
-        // Fallback to cached data
-        console.log("API unavailable, using cached foods");
+        });
+        return;
+      }
+
+      // If sync store is empty, check cache
+      const cachedCount = await getCachedFoodsCount();
+      console.log(`[FOOD-STORE] Cached foods count: ${cachedCount}`);
+
+      // If cache has data, use cached data
+      if (cachedCount > 0) {
         const page = mergedFilters.page || 1;
         const limit = mergedFilters.limit || 20;
         const offset = (page - 1) * limit;
@@ -186,11 +189,11 @@ export const useFoodStore = create<FoodState>((set, get) => ({
           offset,
         });
 
-        const total = await getCachedFoodsCount();
+        const total = cachedCount;
         const newFoods = cachedFoods.map(cachedToFood);
 
-        set((state) => ({
-          foods: shouldAppend ? [...state.foods, ...newFoods] : newFoods,
+        set({
+          foods: append ? [...get().foods, ...newFoods] : newFoods,
           pagination: {
             page,
             limit,
@@ -200,12 +203,25 @@ export const useFoodStore = create<FoodState>((set, get) => ({
           filters: mergedFilters,
           isLoading: false,
           isOffline: true,
-        }));
+        });
+        return;
       }
-    } catch (error: any) {
+
+      // No data available - user needs to sync first
+      console.log(
+        "[FOOD-STORE] No cached data available. User needs to sync first."
+      );
+      set({
+        foods: [],
+        pagination: null,
+        filters: mergedFilters,
+        isLoading: false,
+        isOffline: true,
+      });
+    } catch (error) {
       console.error("Error fetching foods:", error);
-      toast.error("Failed to fetch foods");
-      set({ isLoading: false, foods: [], pagination: null });
+      toast.error("Failed to load foods");
+      set({ isLoading: false });
     }
   },
 
@@ -216,26 +232,24 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   getFoodById: async (id: string) => {
     set({ isLoading: true });
     try {
-      try {
-        // Try API first
-        const response = await api.get(`/foods/${id}`);
-        const food = response.data.data;
+      // First check sync store
+      const syncedFoods = useSyncStore.getState().foods;
+      let food = syncedFoods.find((f) => f._id === id);
 
-        // Cache the food
-        await cacheFoods([foodToCached(food)]);
-
+      if (food) {
         set({ currentFood: food, isLoading: false, isOffline: false });
         return food;
-      } catch (apiError) {
-        // Fallback to cached data
-        const cachedFood = await getCachedFoodById(id);
-        if (cachedFood) {
-          const food = cachedToFood(cachedFood);
-          set({ currentFood: food, isLoading: false, isOffline: true });
-          return food;
-        }
-        throw new Error("Food not found");
       }
+
+      // Fallback to cached data
+      const cachedFood = await getCachedFoodById(id);
+      if (cachedFood) {
+        food = cachedToFood(cachedFood);
+        set({ currentFood: food, isLoading: false, isOffline: true });
+        return food;
+      }
+
+      throw new Error("Food not found");
     } catch (error: any) {
       toast.error("Failed to fetch food details");
       set({ isLoading: false, currentFood: null });
@@ -245,17 +259,26 @@ export const useFoodStore = create<FoodState>((set, get) => ({
 
   searchFoods: async (query: string) => {
     try {
-      try {
-        // Try API first
-        const response = await api.get(
-          `/foods?search=${encodeURIComponent(query)}&limit=10`
-        );
-        return response.data.data || [];
-      } catch {
-        // Fallback to cached data
+      // Get foods from sync store
+      const syncedFoods = useSyncStore.getState().foods;
+
+      // If sync store is empty, check cache
+      if (syncedFoods.length === 0) {
         const cachedFoods = await getCachedFoods({ search: query, limit: 10 });
         return cachedFoods.map(cachedToFood);
       }
+
+      // Search in synced foods
+      const queryLower = query.toLowerCase();
+      const results = syncedFoods
+        .filter(
+          (f) =>
+            f.localName.toLowerCase().includes(queryLower) ||
+            f.canonicalName?.toLowerCase().includes(queryLower)
+        )
+        .slice(0, 10);
+
+      return results;
     } catch {
       return [];
     }
@@ -274,12 +297,11 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   },
 
   syncFoods: async () => {
-    // Sync all foods to cache for offline use
+    // Trigger sync store's full sync
     set({ isLoading: true });
     try {
-      const response = await api.get(`/foods?limit=1000`);
-      const foods = response.data.data || [];
-      await cacheFoods(foods.map(foodToCached));
+      await useSyncStore.getState().getFullSync();
+      const foods = useSyncStore.getState().foods;
       set({ isLoading: false });
       toast.success(`Synced ${foods.length} foods for offline use`);
     } catch (error) {

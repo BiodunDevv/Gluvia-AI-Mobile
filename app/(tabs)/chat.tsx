@@ -1,545 +1,709 @@
+/**
+ * Meal Recommendation Hub
+ *
+ * Main screen for meal recommendations with time-based suggestions,
+ * meal type selection, and quick access to food recommendations.
+ */
+
+import { TodayStatsCard } from "@/components/ui";
+import {
+  getCurrentMealType,
+  getMealTypeInfo,
+  getTimeContextMessage,
+  MealType,
+} from "@/lib/meal-recommendation";
+import {
+  getCachedFoodsCount,
+  getCachedRulesCount,
+  getTodaysMeals,
+  MealHistoryEntry,
+} from "@/lib/offline-db";
 import { useAuthStore } from "@/store/auth-store";
-import { Conversation, useChatStore } from "@/store/chat-store";
 import { useFoodStore } from "@/store/food-store";
 import { useRuleStore } from "@/store/rule-store";
+import { useSyncStore } from "@/store/sync-store";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
+  ArrowDownCircle,
   CheckCircle,
+  ChevronRight,
   Clock,
+  Coffee,
+  Cookie,
+  Database,
   Download,
-  MessageCircle,
-  MessageSquarePlus,
-  Plus,
-  Search,
+  History,
+  Leaf,
+  Moon,
   Sparkles,
-  Trash2,
+  Sun,
+  Zap,
 } from "lucide-react-native";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
-import {
-  GestureHandlerRootView,
-  Swipeable,
-} from "react-native-gesture-handler";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  ZoomIn,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Format date to "2nd January 2026" style
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const month = date.toLocaleString("en-US", { month: "long" });
-  const year = date.getFullYear();
+// Meal type configuration
+const MEAL_CONFIG: Record<
+  MealType,
+  {
+    icon: any;
+    color: string;
+    bgColor: string;
+    description: string;
+  }
+> = {
+  breakfast: {
+    icon: Coffee,
+    color: "#f59e0b",
+    bgColor: "bg-amber-50",
+    description: "Start your day with a balanced meal",
+  },
+  lunch: {
+    icon: Sun,
+    color: "#10b981",
+    bgColor: "bg-emerald-50",
+    description: "Energize your afternoon",
+  },
+  dinner: {
+    icon: Moon,
+    color: "#8b5cf6",
+    bgColor: "bg-purple-50",
+    description: "Light and nutritious evening meal",
+  },
+  snack: {
+    icon: Cookie,
+    color: "#ec4899",
+    bgColor: "bg-pink-50",
+    description: "Smart choices between meals",
+  },
+};
 
-  const ordinal = (n: number) => {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
+// Meal Type Card for Selection
+function MealTypeCard({
+  type,
+  isRecommended,
+  onPress,
+  disabled,
+}: {
+  type: MealType;
+  isRecommended: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const config = MEAL_CONFIG[type];
+  const info = getMealTypeInfo(type);
+  const Icon = config.icon;
 
-  return `${ordinal(day)} ${month} ${year}`;
-}
-
-// Get relative time
-function getRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(dateString);
-}
-
-export default function ChatListScreen() {
-  const { user } = useAuthStore();
-  const {
-    conversations,
-    isLoading,
-    isDataSynced,
-    loadConversations,
-    createConversation,
-    deleteConversation,
-    checkDataSynced,
-  } = useChatStore();
-
-  const { fetchFoods } = useFoodStore();
-  const { fetchRules } = useRuleStore();
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [showSyncRequired, setShowSyncRequired] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Swipeable refs for managing swipe gestures
-  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
-  const openSwipeableRef = useRef<string | null>(null);
-
-  // Close any open swipeable
-  const closeOpenSwipeable = useCallback(() => {
-    if (openSwipeableRef.current) {
-      const ref = swipeableRefs.current.get(openSwipeableRef.current);
-      if (ref) ref.close();
-      openSwipeableRef.current = null;
-    }
-  }, []);
-
-  // Pull to refresh handler
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    // Load conversations and ensure minimum 2 second delay for smooth UX
-    const [,] = await Promise.all([
-      loadConversations(),
-      new Promise((resolve) => setTimeout(resolve, 2000)),
-    ]);
-
-    setIsRefreshing(false);
-  }, [loadConversations]);
-
-  // Check if data is synced on mount
-  useFocusEffect(
-    useCallback(() => {
-      const init = async () => {
-        const synced = await checkDataSynced();
-        if (!synced) {
-          setShowSyncRequired(true);
+  return (
+    <Pressable
+      onPress={() => {
+        if (!disabled) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onPress();
         }
-        loadConversations();
-      };
-      init();
-    }, [])
-  );
+      }}
+      disabled={disabled}
+      className={`bg-white rounded-2xl p-4 mb-3 border border-gray-100 ${disabled ? "opacity-50" : ""}`}
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      }}
+    >
+      <View className="flex-row items-center">
+        <View
+          className="w-14 h-14 rounded-xl items-center justify-center"
+          style={{ backgroundColor: config.color + "20" }}
+        >
+          <Icon size={28} color={config.color} />
+        </View>
 
-  // Sync data for offline use
+        <View className="flex-1 ml-4">
+          <View className="flex-row items-center">
+            <Text className="text-lg font-bold text-gray-800">
+              {info.title}
+            </Text>
+            {isRecommended && (
+              <View className="ml-2 px-2 py-0.5 bg-primary/10 rounded-full flex-row items-center">
+                <Clock size={10} color="#1447e6" />
+                <Text className="text-xs font-medium text-primary ml-1">
+                  Now
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text className="text-sm text-gray-500 mt-0.5">
+            {config.description}
+          </Text>
+          <View className="flex-row items-center mt-2">
+            <Zap size={12} color="#f59e0b" />
+            <Text className="text-xs text-gray-500 ml-1">
+              {info.carbRange.min}-{info.carbRange.max}g carbs recommended
+            </Text>
+          </View>
+        </View>
+
+        <ChevronRight size={20} color="#9ca3af" />
+      </View>
+    </Pressable>
+  );
+}
+
+// Recent Meal Item
+function RecentMealItem({ meal }: { meal: MealHistoryEntry }) {
+  const config = MEAL_CONFIG[meal.mealType];
+  const Icon = config.icon;
+  const time = new Date(meal.createdAt);
+  const timeStr = time.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <View className="flex-row items-center py-3 border-b border-gray-100">
+      <View
+        className="w-10 h-10 rounded-xl items-center justify-center"
+        style={{ backgroundColor: config.color + "15" }}
+      >
+        <Icon size={18} color={config.color} />
+      </View>
+      <View className="flex-1 ml-3">
+        <Text className="font-medium text-gray-800">
+          {getMealTypeInfo(meal.mealType).title}
+        </Text>
+        <Text className="text-xs text-gray-500">
+          {meal.foodIds.length} items • {Math.round(meal.totalCarbs || 0)}g
+          carbs
+        </Text>
+      </View>
+      <Text className="text-xs text-gray-400">{timeStr}</Text>
+    </View>
+  );
+}
+
+// Sync Required Section Component
+function SyncRequiredSection({
+  isSyncing,
+  onSync,
+  syncProgress,
+}: {
+  isSyncing: boolean;
+  onSync: () => void;
+  syncProgress: { foods: boolean; rules: boolean };
+}) {
+  const isSyncComplete = syncProgress.foods && syncProgress.rules;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(200)}
+      className="mx-6 mt-4 bg-primary rounded-3xl p-6 overflow-hidden"
+    >
+      {/* Background Pattern */}
+      <View className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
+      <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-8 -mb-8" />
+
+      {/* Icon */}
+      <View className="items-center mb-4">
+        <View className="w-20 h-20 rounded-full bg-white/20 items-center justify-center">
+          <View className="w-16 h-16 rounded-full bg-white items-center justify-center">
+            {isSyncComplete ? (
+              <Animated.View entering={ZoomIn}>
+                <CheckCircle size={32} color="#22c55e" />
+              </Animated.View>
+            ) : (
+              <Sparkles size={32} color="#1447e6" />
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Title & Description */}
+      <Text className="text-2xl font-bold text-white text-center mb-2">
+        {isSyncComplete ? "You're All Set!" : "Welcome to Gluvia AI"}
+      </Text>
+      <Text className="text-white/80 text-center mb-6 leading-5">
+        {isSyncComplete
+          ? "Your data is ready. You can now get personalized meal recommendations."
+          : "Download our Nigerian food database and smart rules for personalized meal recommendations."}
+      </Text>
+
+      {/* Features */}
+      <View className="bg-white/10 rounded-2xl p-4 mb-6">
+        <View className="flex-row items-center mb-3">
+          <View
+            className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${syncProgress.foods ? "bg-green-500/30" : "bg-white/20"}`}
+          >
+            {syncProgress.foods ? (
+              <CheckCircle size={16} color="#22c55e" />
+            ) : (
+              <Database size={16} color="white" />
+            )}
+          </View>
+          <View className="flex-1">
+            <Text className="text-white font-medium">
+              Nigerian Food Database
+            </Text>
+            <Text className="text-white/60 text-xs">
+              100+ local foods with nutritional info
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row items-center">
+          <View
+            className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${syncProgress.rules ? "bg-green-500/30" : "bg-white/20"}`}
+          >
+            {syncProgress.rules ? (
+              <CheckCircle size={16} color="#22c55e" />
+            ) : (
+              <Zap size={16} color="white" />
+            )}
+          </View>
+          <View className="flex-1">
+            <Text className="text-white font-medium">
+              AI Recommendation Rules
+            </Text>
+            <Text className="text-white/60 text-xs">
+              Smart rules for diabetes management
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Sync Button */}
+      {!isSyncComplete && (
+        <Pressable
+          onPress={onSync}
+          disabled={isSyncing}
+          className={`py-4 rounded-2xl items-center justify-center flex-row ${
+            isSyncing ? "bg-white/50" : "bg-white"
+          }`}
+        >
+          {isSyncing ? (
+            <>
+              <ActivityIndicator color="#1447e6" size="small" />
+              <Text className="text-primary font-bold text-base ml-3">
+                Downloading Data...
+              </Text>
+            </>
+          ) : (
+            <>
+              <Download size={20} color="#1447e6" />
+              <Text className="text-primary font-bold text-base ml-2">
+                Download & Get Started
+              </Text>
+            </>
+          )}
+        </Pressable>
+      )}
+
+      {/* Sync Progress */}
+      {isSyncing && !isSyncComplete && (
+        <Animated.View entering={FadeIn} className="mt-4 items-center">
+          <Text className="text-white/70 text-sm text-center">
+            Please wait while we prepare your personalized experience...
+          </Text>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
+
+export default function MealRecommendationHub() {
+  const { user } = useAuthStore();
+  const { foods, fetchFoods, isLoading: foodsLoading } = useFoodStore();
+  const { rules, fetchRules, isLoading: rulesLoading } = useRuleStore();
+  const {
+    getFullSync,
+    checkAndApplyUpdates,
+    getAggregations,
+    foods: syncedFoods,
+    rules: syncedRules,
+    mealStats,
+    isFetchingAggregations,
+  } = useSyncStore();
+
+  const [todaysMeals, setTodaysMeals] = useState<MealHistoryEntry[]>([]);
+  const [isDataSynced, setIsDataSynced] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({
+    foods: false,
+    rules: false,
+  });
+  const [isCheckingCache, setIsCheckingCache] = useState(true);
+
+  const lastKnownFoodCount = useRef<number>(0);
+
+  const currentMealType = getCurrentMealType();
+  const greeting = getTimeContextMessage(currentMealType);
+
+  // Get total foods count
+  const totalFoodsCount = syncedFoods.length || foods.length;
+
+  // Check if data is synced
+  const checkDataSynced = useCallback(async () => {
+    try {
+      const cachedFoodsCount = await getCachedFoodsCount();
+      const cachedRulesCount = await getCachedRulesCount();
+
+      const hasFoodsInStore = foods.length > 0 || syncedFoods.length > 0;
+      const hasRulesInStore = rules.length > 0 || syncedRules.length > 0;
+
+      const hasCachedData = cachedFoodsCount > 0 && cachedRulesCount > 0;
+      const hasStoreData = hasFoodsInStore && hasRulesInStore;
+      const synced = hasCachedData || hasStoreData;
+
+      setIsDataSynced(synced);
+
+      if (cachedFoodsCount > 0) {
+        lastKnownFoodCount.current = cachedFoodsCount;
+      }
+
+      // If synced, also update sync progress UI
+      if (synced) {
+        setSyncProgress({ foods: true, rules: true });
+      }
+
+      return synced;
+    } catch (error) {
+      console.error("Error checking data sync status:", error);
+      return false;
+    } finally {
+      setIsCheckingCache(false);
+    }
+  }, [foods.length, rules.length, syncedFoods.length, syncedRules.length]);
+
+  // Load today's meals
+  const loadTodaysMeals = useCallback(async () => {
+    if (user?._id) {
+      const meals = await getTodaysMeals(user._id);
+      setTodaysMeals(meals);
+    }
+  }, [user?._id]);
+
+  // Fetch aggregations for stats
+  const fetchAggregations = useCallback(async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      await getAggregations({
+        from: today.toISOString(),
+        to: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error fetching aggregations:", error);
+    }
+  }, [getAggregations]);
+
+  // Full sync for first-time users
   const syncDataForOffline = async () => {
     setIsSyncing(true);
-    try {
-      await Promise.all([fetchFoods({ limit: 200 }), fetchRules()]);
+    setSyncProgress({ foods: false, rules: false });
 
-      const synced = await checkDataSynced();
-      if (synced) {
-        setShowSyncRequired(false);
-        Alert.alert(
-          "✅ Sync Complete!",
-          "Your Gluvia AI is now ready to work offline. You can get meal recommendations anytime, anywhere!",
-          [{ text: "Let's Go!", style: "default" }]
-        );
-      }
+    try {
+      const result = await getFullSync();
+
+      setSyncProgress({ foods: true, rules: true });
+      lastKnownFoodCount.current = result.foods?.length || 0;
+      setIsDataSynced(true);
+
+      // Fetch aggregations after sync
+      await fetchAggregations();
+
+      // Small delay for smooth UI
+      setTimeout(() => {
+        setIsSyncing(false);
+      }, 500);
     } catch (error) {
       console.error("Sync error:", error);
       Alert.alert(
         "Sync Failed",
         "Please check your internet connection and try again."
       );
-    } finally {
       setIsSyncing(false);
+      setSyncProgress({ foods: false, rules: false });
     }
   };
 
-  const handleNewChat = async () => {
+  // Delta update for existing users
+  const checkForUpdates = async () => {
+    setIsUpdating(true);
+
+    try {
+      const result = await checkAndApplyUpdates();
+
+      if (result.hasChanges) {
+        Alert.alert(
+          "Updates Applied",
+          `Updated ${result.foodsUpdated} foods and ${result.rulesUpdated} rules.`
+        );
+        // Refresh aggregations after update
+        await fetchAggregations();
+      } else {
+        Alert.alert("Up to Date", "You have the latest data.");
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      Alert.alert(
+        "Update Failed",
+        "Please check your internet connection and try again."
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle meal type selection
+  const handleSelectMealType = (type: MealType) => {
     if (!isDataSynced) {
-      setShowSyncRequired(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    closeOpenSwipeable();
-
-    // Create a temporary conversation ID - won't be saved until first message
-    const tempId = `temp_${Date.now()}`;
     router.push({
-      pathname: "/current-chat",
-      params: { conversationId: tempId, isNew: "true" },
+      pathname: "/meal-recommendation",
+      params: { mealType: type },
     });
   };
 
-  const handleSelectConversation = async (id: string) => {
-    await Haptics.selectionAsync();
-    closeOpenSwipeable();
-    router.push({
-      pathname: "/current-chat",
-      params: { conversationId: id },
-    });
+  // Pull to refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchFoods({ limit: 100 }),
+      fetchRules(),
+      loadTodaysMeals(),
+      fetchAggregations(),
+    ]);
+    await checkDataSynced();
+    setRefreshing(false);
   };
 
-  const handleDeleteConversation = async (id: string, title: string) => {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    Alert.alert(
-      "Delete Chat",
-      `Are you sure you want to delete "${title || "this conversation"}"?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => {
-            const ref = swipeableRefs.current.get(id);
-            if (ref) ref.close();
-          },
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await Haptics.notificationAsync(
-              Haptics.NotificationFeedbackType.Success
-            );
-            deleteConversation(id);
-          },
-        },
-      ]
-    );
-  };
-
-  // Filter conversations by search
-  const filteredConversations = conversations.filter(
-    (conv) =>
-      conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Load data on mount
+  useFocusEffect(
+    useCallback(() => {
+      checkDataSynced();
+      loadTodaysMeals();
+    }, [checkDataSynced, loadTodaysMeals])
   );
 
-  // Render right swipe actions (delete)
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>,
-    conversationId: string,
-    title: string
-  ) => {
-    const scale = dragX.interpolate({
-      inputRange: [-100, 0],
-      outputRange: [1, 0.8],
-      extrapolate: "clamp",
-    });
-
-    const opacity = dragX.interpolate({
-      inputRange: [-100, -50, 0],
-      outputRange: [1, 0.8, 0],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <Animated.View
-        style={{ opacity, transform: [{ scale }] }}
-        className="justify-center items-center px-3"
-      >
-        <Pressable
-          onPress={() => handleDeleteConversation(conversationId, title)}
-          className="bg-red-500 rounded-2xl p-4 items-center justify-center"
-          style={{ width: 80, height: "85%" }}
-        >
-          <Trash2 size={22} color="white" />
-          <Text className="text-white text-xs mt-1 font-medium">Delete</Text>
-        </Pressable>
-      </Animated.View>
-    );
-  };
-
-  const renderConversation = ({ item }: { item: Conversation }) => (
-    <Swipeable
-      ref={(ref) => {
-        swipeableRefs.current.set(item.id, ref);
-      }}
-      renderRightActions={(progress, dragX) =>
-        renderRightActions(progress, dragX, item.id, item.title)
+  // Fetch aggregations when data is synced
+  useFocusEffect(
+    useCallback(() => {
+      if (isDataSynced) {
+        fetchAggregations();
       }
-      rightThreshold={80}
-      overshootRight={false}
-      friction={2}
-      onSwipeableWillOpen={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // Close other open swipeables
-        if (openSwipeableRef.current && openSwipeableRef.current !== item.id) {
-          const ref = swipeableRefs.current.get(openSwipeableRef.current);
-          if (ref) ref.close();
-        }
-        openSwipeableRef.current = item.id;
-      }}
-    >
-      <Pressable
-        onPress={() => handleSelectConversation(item.id)}
-        className="flex-row items-center bg-white p-4 mx-4 mb-3 rounded-2xl border border-gray-100"
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 3,
-          elevation: 2,
-        }}
-      >
-        <View className="w-12 h-12 rounded-xl bg-primary/10 items-center justify-center">
-          <MessageCircle size={22} color="#1447e6" />
-        </View>
-
-        <View className="flex-1 ml-4">
-          <Text
-            className="font-semibold text-gray-800 text-base"
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
-          {item.lastMessage && (
-            <Text className="text-sm text-gray-500 mt-1" numberOfLines={2}>
-              {item.lastMessage.replace(/\n/g, " ").substring(0, 80)}
-              {item.lastMessage.length > 80 ? "..." : ""}
-            </Text>
-          )}
-          <View className="flex-row items-center mt-2">
-            <Clock size={12} color="#9ca3af" />
-            <Text className="text-xs text-gray-400 ml-1.5">
-              {getRelativeTime(item.updatedAt)}
-            </Text>
-            <View className="w-1 h-1 bg-gray-300 rounded-full mx-2" />
-            <Text className="text-xs text-gray-400">
-              {item.messageCount} messages
-            </Text>
-          </View>
-        </View>
-
-        <View className="ml-2">
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </View>
-      </Pressable>
-    </Swipeable>
+    }, [isDataSynced, fetchAggregations])
   );
 
-  // Sync Required Screen
-  if (showSyncRequired && !isDataSynced) {
-    return (
-      <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
-        <View className="flex-1 items-center justify-center px-8">
-          <View className="w-24 h-24 rounded-full bg-primary/10 items-center justify-center mb-6">
-            <Download size={48} color="#1447e6" />
-          </View>
-
-          <Text className="text-2xl font-bold text-gray-800 text-center mb-3">
-            One-Time Setup Required
-          </Text>
-
-          <Text className="text-gray-500 text-center text-base leading-6 mb-8">
-            To provide you with personalized offline meal recommendations, I
-            need to download the Nigerian food database and dietary rules. This
-            only takes a moment!
-          </Text>
-
-          <View className="w-full bg-gray-50 rounded-2xl p-5 mb-6">
-            <View className="flex-row items-center mb-4">
-              <View className="w-8 h-8 rounded-full bg-green-100 items-center justify-center">
-                <CheckCircle size={18} color="#22c55e" />
-              </View>
-              <Text className="ml-3 text-gray-700 flex-1">
-                84+ Nigerian foods with nutrition data
-              </Text>
-            </View>
-            <View className="flex-row items-center mb-4">
-              <View className="w-8 h-8 rounded-full bg-green-100 items-center justify-center">
-                <CheckCircle size={18} color="#22c55e" />
-              </View>
-              <Text className="ml-3 text-gray-700 flex-1">
-                Smart dietary rules for diabetes
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-green-100 items-center justify-center">
-                <CheckCircle size={18} color="#22c55e" />
-              </View>
-              <Text className="ml-3 text-gray-700 flex-1">
-                Works 100% offline after sync
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={syncDataForOffline}
-            disabled={isSyncing}
-            className={`w-full py-4 rounded-2xl flex-row items-center justify-center ${
-              isSyncing ? "bg-primary/70" : "bg-primary"
-            }`}
-          >
-            {isSyncing ? (
-              <>
-                <ActivityIndicator size="small" color="white" />
-                <Text className="text-white font-semibold text-base ml-3">
-                  Syncing Data...
-                </Text>
-              </>
-            ) : (
-              <>
-                <Download size={20} color="white" />
-                <Text className="text-white font-semibold text-base ml-3">
-                  Download & Sync Now
-                </Text>
-              </>
-            )}
-          </Pressable>
-
-          <Text className="text-gray-400 text-sm mt-4 text-center">
-            Requires internet connection • ~2MB download
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Calculate stats from aggregations or local data
+  const todaysTotals = {
+    meals: mealStats?.totalMeals || todaysMeals.length || 0,
+    carbs:
+      mealStats?.totalCarbs ||
+      todaysMeals.reduce((acc, m) => acc + (m.totalCarbs || 0), 0),
+    calories:
+      mealStats?.totalCalories ||
+      todaysMeals.reduce((acc, m) => acc + (m.totalCalories || 0), 0),
+  };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#1447e6"
+          />
+        }
+      >
         {/* Header */}
-        <View className="px-5 pt-4 pb-3 bg-white border-b border-gray-100">
-          <View className="flex-row items-center justify-between mb-4">
-            <View>
-              <Text className="text-2xl font-bold text-gray-800">
-                Conversations
-              </Text>
-              <Text className="text-gray-500 text-sm mt-0.5">
-                {conversations.length}{" "}
-                {conversations.length === 1 ? "chat" : "chats"}
+        <View className="px-6 pt-4 pb-2">
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-1">
+              <View className="flex-row items-center">
+                <Sparkles size={16} color="#1447e6" />
+                <Text className="text-sm text-primary font-medium ml-1.5">
+                  Gluvia AI
+                </Text>
+              </View>
+              <Text className="text-2xl font-bold text-gray-800 mt-1">
+                Meal Recommendations
               </Text>
             </View>
-            <View className="w-12 h-12 rounded-full bg-primary items-center justify-center">
-              <Sparkles size={24} color="white" />
-            </View>
+
+            {/* Update Button - Only show if data is synced */}
+            {isDataSynced && (
+              <Pressable
+                onPress={checkForUpdates}
+                disabled={isUpdating}
+                className="flex-row items-center px-3 py-2 bg-primary/10 rounded-xl"
+              >
+                {isUpdating ? (
+                  <ActivityIndicator color="#1447e6" size="small" />
+                ) : (
+                  <ArrowDownCircle size={16} color="#1447e6" />
+                )}
+                <Text className="text-primary text-xs font-medium ml-1.5">
+                  {isUpdating ? "Updating..." : "Update"}
+                </Text>
+              </Pressable>
+            )}
           </View>
 
-          {/* Search Bar */}
-          {conversations.length > 0 && (
-            <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
-              <Search size={20} color="#9ca3af" />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search conversations..."
-                placeholderTextColor="#9ca3af"
-                className="flex-1 ml-3 text-base text-gray-800"
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={() => setSearchQuery("")} hitSlop={10}>
-                  <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                </Pressable>
-              )}
-            </View>
+          {/* Greeting Banner - Only when synced */}
+          {isDataSynced && (
+            <Animated.View
+              entering={FadeIn}
+              className="bg-gradient-to-r from-primary/10 to-blue-50 rounded-2xl py-2 mt-2"
+            >
+              <Text className="text-gray-700 leading-6">{greeting}</Text>
+            </Animated.View>
           )}
         </View>
 
-        {/* Swipe hint for new users */}
-        {conversations.length > 0 && conversations.length <= 3 && (
-          <View className="mx-4 mt-3 px-4 py-2 rounded-lg flex-row items-center bg-primary/5">
-            <Ionicons name="arrow-back" size={16} color="#1447e6" />
-            <Text className="text-xs ml-2 text-primary">
-              Swipe left on a chat to delete
-            </Text>
-          </View>
-        )}
-
-        {/* Content */}
-        {isLoading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#1447e6" />
-            <Text className="text-gray-500 mt-4">Loading conversations...</Text>
-          </View>
-        ) : conversations.length === 0 ? (
-          // Empty State
-          <View className="flex-1 items-center justify-center px-8">
-            <View className="w-28 h-28 rounded-full bg-primary/10 items-center justify-center mb-6">
-              <MessageSquarePlus size={56} color="#1447e6" />
-            </View>
-
-            <Text className="text-2xl font-bold text-gray-800 text-center mb-2">
-              No Conversations Yet
-            </Text>
-            <Text className="text-gray-500 text-center text-base leading-6 mb-8">
-              Start a new conversation with Gluvia AI to get personalized meal
-              recommendations and nutrition advice.
-            </Text>
-
-            <Pressable
-              onPress={handleNewChat}
-              className="flex-row items-center bg-primary px-8 py-4 rounded-2xl"
-              style={{
-                shadowColor: "#1447e6",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-            >
-              <Plus size={22} color="white" />
-              <Text className="text-white font-semibold text-base ml-2">
-                Start New Chat
-              </Text>
-            </Pressable>
-
-            <View className="flex-row items-center mt-6 bg-green-50 px-4 py-3 rounded-xl">
-              <Ionicons name="leaf" size={20} color="#22c55e" />
-              <Text className="text-green-700 text-sm ml-2 flex-1">
-                100% Offline • Your data stays on your device
-              </Text>
-            </View>
-          </View>
-        ) : (
-          // Conversations List
-          <FlatList
-            data={filteredConversations}
-            renderItem={renderConversation}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
-            onScrollBeginDrag={closeOpenSwipeable}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor="#1447e6"
-                colors={["#1447e6"]}
-                progressBackgroundColor="white"
-              />
-            }
-            ListEmptyComponent={
-              searchQuery ? (
-                <View className="items-center py-12">
-                  <Search size={48} color="#d1d5db" />
-                  <Text className="text-gray-400 mt-4 text-center">
-                    No conversations found for "{searchQuery}"
-                  </Text>
-                </View>
-              ) : null
-            }
+        {/* Show Sync Section if not synced */}
+        {!isDataSynced && !isCheckingCache && (
+          <SyncRequiredSection
+            isSyncing={isSyncing}
+            onSync={syncDataForOffline}
+            syncProgress={syncProgress}
           />
         )}
 
-        {/* Floating Action Button */}
-        {conversations.length > 0 && (
-          <Pressable
-            onPress={handleNewChat}
-            className="absolute bottom-6 right-6 w-16 h-16 rounded-full bg-primary items-center justify-center"
-            style={{
-              shadowColor: "#1447e6",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
-              elevation: 6,
-            }}
-          >
-            <Plus size={28} color="white" />
-          </Pressable>
+        {/* Loading State */}
+        {isCheckingCache && (
+          <View className="flex-1 items-center justify-center py-20">
+            <ActivityIndicator size="large" color="#1447e6" />
+            <Text className="text-gray-500 mt-4">Loading...</Text>
+          </View>
         )}
-      </SafeAreaView>
-    </GestureHandlerRootView>
+
+        {/* Main Content - Only show when synced */}
+        {isDataSynced && (
+          <>
+            {/* Today's Stats */}
+            <TodayStatsCard
+              totalCalories={todaysTotals.calories}
+              totalCarbs={todaysTotals.carbs}
+              mealsCount={todaysTotals.meals}
+              isLoading={isFetchingAggregations}
+              showLogMealButton={false}
+              animationDelay={100}
+            />
+
+            {/* Meal Type Selection */}
+            <View className="px-6 mt-2">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-lg font-bold text-gray-800">
+                  Get Recommendations
+                </Text>
+                <View className="flex-row items-center bg-green-50 px-3 py-1.5 rounded-full">
+                  <Leaf size={14} color="#22c55e" />
+                  <Text className="text-xs text-green-700 font-medium ml-1.5">
+                    {totalFoodsCount} foods synced
+                  </Text>
+                </View>
+              </View>
+
+              {(["breakfast", "lunch", "dinner", "snack"] as MealType[]).map(
+                (type) => (
+                  <Animated.View
+                    key={type}
+                    entering={FadeInUp.delay(
+                      ["breakfast", "lunch", "dinner", "snack"].indexOf(type) *
+                        100
+                    )}
+                  >
+                    <MealTypeCard
+                      type={type}
+                      isRecommended={type === currentMealType}
+                      onPress={() => handleSelectMealType(type)}
+                      disabled={!isDataSynced}
+                    />
+                  </Animated.View>
+                )
+              )}
+            </View>
+
+            {/* Recent Meals */}
+            {todaysMeals.length > 0 && (
+              <View className="px-6 mt-6">
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <History size={18} color="#6b7280" />
+                    <Text className="text-lg font-bold text-gray-800 ml-2">
+                      Today's Meals
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-gray-400">
+                    {todaysMeals.length} logged
+                  </Text>
+                </View>
+
+                <View className="bg-white rounded-2xl p-4">
+                  {todaysMeals.slice(0, 5).map((meal) => (
+                    <RecentMealItem key={meal.id} meal={meal} />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Quick Tips */}
+            <View className="px-6 mt-6">
+              <Animated.View
+                entering={FadeInUp.delay(400)}
+                className="bg-blue-50 rounded-2xl p-4"
+              >
+                <View className="flex-row items-center mb-2">
+                  <Ionicons name="bulb" size={18} color="#1447e6" />
+                  <Text className="font-semibold text-primary ml-2">
+                    Quick Tips
+                  </Text>
+                </View>
+                <Text className="text-sm text-gray-700 leading-5">
+                  • Aim for 3 balanced meals with 1-2 small snacks{"\n"}•
+                  Include protein with each meal for stable blood sugar{"\n"}•
+                  Choose low GI foods to avoid spikes
+                </Text>
+              </Animated.View>
+            </View>
+
+            {/* Offline Status */}
+            <View className="px-6 mt-6">
+              <View className="flex-row items-center justify-center py-3 bg-green-50 rounded-xl">
+                <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+                <Text className="text-green-700 text-sm ml-2">
+                  Ready for offline use • {totalFoodsCount} foods cached
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }

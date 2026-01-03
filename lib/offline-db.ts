@@ -146,6 +146,82 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase) {
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
   `);
+
+  // Create offline credentials table for offline login
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS offline_credentials (
+      user_id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  // Create pending profile updates table for offline sync
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS pending_profile_updates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      update_data TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      synced INTEGER DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+
+  // Create meal history table for tracking meals
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS meal_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      meal_type TEXT NOT NULL,
+      food_ids TEXT NOT NULL,
+      total_calories REAL,
+      total_carbs REAL,
+      total_protein REAL,
+      total_fat REAL,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+
+  // Create pending glucose logs table for offline sync
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS pending_glucose_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_generated_id TEXT UNIQUE NOT NULL,
+      user_id TEXT NOT NULL,
+      value REAL NOT NULL,
+      unit TEXT NOT NULL,
+      type TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      notes TEXT,
+      meal_related INTEGER DEFAULT 0,
+      meal_log_id TEXT,
+      symptoms TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
+
+  // Create pending meal logs table for offline sync
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS pending_meal_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_generated_id TEXT UNIQUE NOT NULL,
+      user_id TEXT NOT NULL,
+      meal_type TEXT NOT NULL,
+      foods TEXT NOT NULL,
+      notes TEXT,
+      timestamp TEXT NOT NULL,
+      synced INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+  `);
 }
 
 export interface OfflineUserProfile {
@@ -533,6 +609,14 @@ export async function getCachedFoodsCount(): Promise<number> {
   return result?.count || 0;
 }
 
+export async function getCachedRulesCount(): Promise<number> {
+  const database = await getDatabase();
+  const result = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM rules_cache WHERE deleted = 0`
+  );
+  return result?.count || 0;
+}
+
 // ============ RULE CACHE FUNCTIONS ============
 
 export interface CachedRule {
@@ -661,4 +745,462 @@ export async function clearFoodsCache(): Promise<void> {
 export async function clearRulesCache(): Promise<void> {
   const database = await getDatabase();
   await database.runAsync(`DELETE FROM rules_cache`);
+}
+
+/**
+ * Clear ALL cached data from the database
+ * Used when user wants to force a fresh sync or reset app data
+ */
+export async function clearAllCachedData(): Promise<{
+  foodsCleared: boolean;
+  rulesCleared: boolean;
+  pendingGlucoseCleared: boolean;
+  pendingMealsCleared: boolean;
+}> {
+  const database = await getDatabase();
+  const result = {
+    foodsCleared: false,
+    rulesCleared: false,
+    pendingGlucoseCleared: false,
+    pendingMealsCleared: false,
+  };
+
+  try {
+    await database.runAsync(`DELETE FROM foods_cache`);
+    result.foodsCleared = true;
+  } catch (error) {
+    console.error("Error clearing foods cache:", error);
+  }
+
+  try {
+    await database.runAsync(`DELETE FROM rules_cache`);
+    result.rulesCleared = true;
+  } catch (error) {
+    console.error("Error clearing rules cache:", error);
+  }
+
+  try {
+    await database.runAsync(`DELETE FROM pending_glucose_logs`);
+    result.pendingGlucoseCleared = true;
+  } catch (error) {
+    console.error("Error clearing pending glucose logs:", error);
+  }
+
+  try {
+    await database.runAsync(`DELETE FROM pending_meal_logs`);
+    result.pendingMealsCleared = true;
+  } catch (error) {
+    console.error("Error clearing pending meal logs:", error);
+  }
+
+  console.log("[OFFLINE-DB] Cleared all cached data:", result);
+  return result;
+}
+
+// ============================================================
+// OFFLINE CREDENTIALS FUNCTIONS
+// ============================================================
+
+// Simple hash function for offline password verification
+// Note: This is NOT cryptographically secure - just for offline convenience
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
+export async function saveOfflineCredentials(
+  userId: string,
+  email: string,
+  password: string
+): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+  const passwordHash = simpleHash(password + email); // Salt with email
+
+  await database.runAsync(
+    `INSERT OR REPLACE INTO offline_credentials 
+     (user_id, email, password_hash, created_at, updated_at) 
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, email.toLowerCase(), passwordHash, now, now]
+  );
+}
+
+export async function verifyOfflineCredentials(
+  email: string,
+  password: string
+): Promise<boolean> {
+  const database = await getDatabase();
+  const passwordHash = simpleHash(password + email);
+
+  const row = await database.getFirstAsync<{
+    user_id: string;
+    password_hash: string;
+  }>(`SELECT user_id, password_hash FROM offline_credentials WHERE email = ?`, [
+    email.toLowerCase(),
+  ]);
+
+  if (!row) return false;
+  return row.password_hash === passwordHash;
+}
+
+export async function hasOfflineCredentials(email: string): Promise<boolean> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<{ user_id: string }>(
+    `SELECT user_id FROM offline_credentials WHERE email = ?`,
+    [email.toLowerCase()]
+  );
+  return !!row;
+}
+
+export async function clearOfflineCredentials(userId?: string): Promise<void> {
+  const database = await getDatabase();
+  if (userId) {
+    await database.runAsync(
+      `DELETE FROM offline_credentials WHERE user_id = ?`,
+      [userId]
+    );
+  } else {
+    await database.runAsync(`DELETE FROM offline_credentials`);
+  }
+}
+
+// ============================================================
+// PENDING PROFILE UPDATES FUNCTIONS
+// ============================================================
+
+export interface PendingProfileUpdate {
+  id: number;
+  userId: string;
+  updateData: Record<string, any>;
+  createdAt: string;
+  synced: boolean;
+}
+
+export async function queueProfileUpdate(
+  userId: string,
+  updateData: Record<string, any>
+): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+
+  await database.runAsync(
+    `INSERT INTO pending_profile_updates 
+     (user_id, update_data, created_at, synced) 
+     VALUES (?, ?, ?, 0)`,
+    [userId, JSON.stringify(updateData), now]
+  );
+}
+
+export async function getPendingProfileUpdates(
+  userId: string
+): Promise<PendingProfileUpdate[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<{
+    id: number;
+    user_id: string;
+    update_data: string;
+    created_at: string;
+    synced: number;
+  }>(
+    `SELECT * FROM pending_profile_updates 
+     WHERE user_id = ? AND synced = 0 
+     ORDER BY created_at ASC`,
+    [userId]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    updateData: JSON.parse(row.update_data),
+    createdAt: row.created_at,
+    synced: row.synced === 1,
+  }));
+}
+
+export async function markProfileUpdateSynced(id: number): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    `UPDATE pending_profile_updates SET synced = 1 WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function clearSyncedProfileUpdates(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    `DELETE FROM pending_profile_updates WHERE synced = 1`
+  );
+}
+
+// ============================================================
+// MEAL HISTORY FUNCTIONS
+// ============================================================
+
+export interface MealHistoryEntry {
+  id: number;
+  userId: string;
+  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  foodIds: string[];
+  totalCalories?: number;
+  totalCarbs?: number;
+  totalProtein?: number;
+  totalFat?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export async function saveMealToHistory(
+  entry: Omit<MealHistoryEntry, "id">
+): Promise<number> {
+  const database = await getDatabase();
+
+  const result = await database.runAsync(
+    `INSERT INTO meal_history 
+     (user_id, meal_type, food_ids, total_calories, total_carbs, total_protein, total_fat, notes, created_at) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.userId,
+      entry.mealType,
+      JSON.stringify(entry.foodIds),
+      entry.totalCalories ?? null,
+      entry.totalCarbs ?? null,
+      entry.totalProtein ?? null,
+      entry.totalFat ?? null,
+      entry.notes ?? null,
+      entry.createdAt,
+    ]
+  );
+
+  return result.lastInsertRowId;
+}
+
+export async function getTodaysMeals(
+  userId: string
+): Promise<MealHistoryEntry[]> {
+  const database = await getDatabase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString();
+
+  const rows = await database.getAllAsync<{
+    id: number;
+    user_id: string;
+    meal_type: string;
+    food_ids: string;
+    total_calories: number | null;
+    total_carbs: number | null;
+    total_protein: number | null;
+    total_fat: number | null;
+    notes: string | null;
+    created_at: string;
+  }>(
+    `SELECT * FROM meal_history 
+     WHERE user_id = ? AND created_at >= ? 
+     ORDER BY created_at ASC`,
+    [userId, todayStr]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    mealType: row.meal_type as MealHistoryEntry["mealType"],
+    foodIds: JSON.parse(row.food_ids),
+    totalCalories: row.total_calories ?? undefined,
+    totalCarbs: row.total_carbs ?? undefined,
+    totalProtein: row.total_protein ?? undefined,
+    totalFat: row.total_fat ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+// ============================================================
+// PENDING GLUCOSE LOGS (Offline Sync)
+// ============================================================
+
+export interface PendingGlucoseLog {
+  id?: number;
+  clientGeneratedId: string;
+  userId: string;
+  value: number;
+  unit: string;
+  type: string;
+  timestamp: string;
+  notes?: string;
+  mealRelated?: boolean;
+  mealLogId?: string;
+  symptoms?: string[];
+  synced?: boolean;
+  createdAt: string;
+}
+
+export async function savePendingGlucoseLog(
+  log: Omit<PendingGlucoseLog, "id" | "synced" | "createdAt">
+): Promise<number> {
+  const database = await getDatabase();
+
+  const result = await database.runAsync(
+    `INSERT OR REPLACE INTO pending_glucose_logs 
+     (client_generated_id, user_id, value, unit, type, timestamp, notes, meal_related, meal_log_id, symptoms, synced, created_at) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+    [
+      log.clientGeneratedId,
+      log.userId,
+      log.value,
+      log.unit,
+      log.type,
+      log.timestamp,
+      log.notes ?? null,
+      log.mealRelated ? 1 : 0,
+      log.mealLogId ?? null,
+      log.symptoms ? JSON.stringify(log.symptoms) : null,
+      new Date().toISOString(),
+    ]
+  );
+
+  return result.lastInsertRowId;
+}
+
+export async function getPendingGlucoseLogs(
+  userId: string
+): Promise<PendingGlucoseLog[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<{
+    id: number;
+    client_generated_id: string;
+    user_id: string;
+    value: number;
+    unit: string;
+    type: string;
+    timestamp: string;
+    notes: string | null;
+    meal_related: number;
+    meal_log_id: string | null;
+    symptoms: string | null;
+    synced: number;
+    created_at: string;
+  }>(
+    `SELECT * FROM pending_glucose_logs 
+     WHERE user_id = ? AND synced = 0 
+     ORDER BY timestamp DESC`,
+    [userId]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    clientGeneratedId: row.client_generated_id,
+    userId: row.user_id,
+    value: row.value,
+    unit: row.unit,
+    type: row.type,
+    timestamp: row.timestamp,
+    notes: row.notes ?? undefined,
+    mealRelated: row.meal_related === 1,
+    mealLogId: row.meal_log_id ?? undefined,
+    symptoms: row.symptoms ? JSON.parse(row.symptoms) : undefined,
+    synced: row.synced === 1,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function markGlucoseLogsSynced(
+  clientGeneratedIds: string[]
+): Promise<void> {
+  if (clientGeneratedIds.length === 0) return;
+  const database = await getDatabase();
+  const placeholders = clientGeneratedIds.map(() => "?").join(",");
+  await database.runAsync(
+    `UPDATE pending_glucose_logs SET synced = 1 WHERE client_generated_id IN (${placeholders})`,
+    clientGeneratedIds
+  );
+}
+
+// ============================================================
+// PENDING MEAL LOGS (Offline Sync)
+// ============================================================
+
+export interface PendingMealLog {
+  id?: number;
+  clientGeneratedId: string;
+  userId: string;
+  mealType: string;
+  foods: Array<{ foodId: string; portionSize: string; quantity: number }>;
+  notes?: string;
+  timestamp: string;
+  synced?: boolean;
+  createdAt: string;
+}
+
+export async function savePendingMealLog(
+  log: Omit<PendingMealLog, "id" | "synced" | "createdAt">
+): Promise<number> {
+  const database = await getDatabase();
+
+  const result = await database.runAsync(
+    `INSERT OR REPLACE INTO pending_meal_logs 
+     (client_generated_id, user_id, meal_type, foods, notes, timestamp, synced, created_at) 
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+    [
+      log.clientGeneratedId,
+      log.userId,
+      log.mealType,
+      JSON.stringify(log.foods),
+      log.notes ?? null,
+      log.timestamp,
+      new Date().toISOString(),
+    ]
+  );
+
+  return result.lastInsertRowId;
+}
+
+export async function getPendingMealLogs(
+  userId: string
+): Promise<PendingMealLog[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<{
+    id: number;
+    client_generated_id: string;
+    user_id: string;
+    meal_type: string;
+    foods: string;
+    notes: string | null;
+    timestamp: string;
+    synced: number;
+    created_at: string;
+  }>(
+    `SELECT * FROM pending_meal_logs 
+     WHERE user_id = ? AND synced = 0 
+     ORDER BY timestamp DESC`,
+    [userId]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    clientGeneratedId: row.client_generated_id,
+    userId: row.user_id,
+    mealType: row.meal_type,
+    foods: JSON.parse(row.foods),
+    notes: row.notes ?? undefined,
+    timestamp: row.timestamp,
+    synced: row.synced === 1,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function markMealLogsSynced(
+  clientGeneratedIds: string[]
+): Promise<void> {
+  if (clientGeneratedIds.length === 0) return;
+  const database = await getDatabase();
+  const placeholders = clientGeneratedIds.map(() => "?").join(",");
+  await database.runAsync(
+    `UPDATE pending_meal_logs SET synced = 1 WHERE client_generated_id IN (${placeholders})`,
+    clientGeneratedIds
+  );
 }

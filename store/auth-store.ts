@@ -2,9 +2,15 @@ import api from "@/lib/api";
 import { getDeviceId } from "@/lib/device";
 import {
   clearOfflineSession,
+  clearSyncedProfileUpdates,
   getOfflineSession,
+  getPendingProfileUpdates,
+  markProfileUpdateSynced,
+  queueProfileUpdate,
+  saveOfflineCredentials,
   saveUserOffline,
   updateUserOffline,
+  verifyOfflineCredentials,
 } from "@/lib/offline-db";
 import { showApiError, toast } from "@/lib/toast";
 import * as SecureStore from "expo-secure-store";
@@ -75,6 +81,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isOffline: boolean;
+  hasPendingUpdates: boolean;
   error: string | null;
 
   // Actions
@@ -87,6 +94,7 @@ interface AuthState {
   uploadPhoto: (imageUri: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
+  syncPendingUpdates: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -97,6 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   isAuthenticated: false,
   isOffline: false,
+  hasPendingUpdates: false,
   error: null,
 
   register: async (data: RegisterData) => {
@@ -144,6 +153,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token,
         expiresAt
       );
+
+      // Save credentials for offline login
+      await saveOfflineCredentials(user._id, data.email, data.password);
 
       set({
         user,
@@ -205,6 +217,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         expiresAt
       );
 
+      // Save credentials for offline login
+      await saveOfflineCredentials(user._id, data.email, data.password);
+
+      // Sync any pending profile updates
+      get().syncPendingUpdates();
+
       set({
         user,
         token,
@@ -214,37 +232,62 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      // If network error, try offline login
+      // If network error, try offline login with credential verification
       if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
         try {
+          // Check if we have any offline session for this email
           const offlineSession = await getOfflineSession();
-          if (offlineSession) {
-            // Convert offline user to User format
-            const user: User = {
-              _id: offlineSession.user.id,
-              email: offlineSession.user.email,
-              name: offlineSession.user.name,
-              phone: offlineSession.user.phone,
-              role: offlineSession.user.role as User["role"],
-              deleted: offlineSession.user.deleted,
-              profile: offlineSession.user.profile,
-              consent: offlineSession.user.consent,
-              createdAt: offlineSession.user.createdAt,
-              updatedAt: offlineSession.user.updatedAt,
-            };
 
-            set({
-              user,
-              token: offlineSession.token,
-              expiresAt: offlineSession.expiresAt,
-              isAuthenticated: true,
-              isOffline: true,
-              isLoading: false,
-            });
-            return;
+          if (!offlineSession || offlineSession.user.email !== data.email) {
+            // No offline data for this account
+            set({ isLoading: false });
+            throw new Error(
+              "You're offline and this account hasn't been used on this device before.\n\nPlease connect to the internet to log in for the first time. After that, you can use the app offline."
+            );
           }
-        } catch (offlineError) {
+
+          // Verify credentials match stored credentials
+          const isValidCredentials = await verifyOfflineCredentials(
+            data.email,
+            data.password
+          );
+
+          if (!isValidCredentials) {
+            set({ isLoading: false });
+            throw new Error(
+              "Invalid password. Please check your password and try again."
+            );
+          }
+
+          // Convert offline user to User format
+          const user: User = {
+            _id: offlineSession.user.id,
+            email: offlineSession.user.email,
+            name: offlineSession.user.name,
+            phone: offlineSession.user.phone,
+            role: offlineSession.user.role as User["role"],
+            deleted: offlineSession.user.deleted,
+            profile: offlineSession.user.profile,
+            consent: offlineSession.user.consent,
+            createdAt: offlineSession.user.createdAt,
+            updatedAt: offlineSession.user.updatedAt,
+          };
+
+          toast.info("Offline Mode", "Logged in with cached credentials");
+
+          set({
+            user,
+            token: offlineSession.token,
+            expiresAt: offlineSession.expiresAt,
+            isAuthenticated: true,
+            isOffline: true,
+            isLoading: false,
+          });
+          return;
+        } catch (offlineError: any) {
           console.error("Offline login failed:", offlineError);
+          set({ isLoading: false });
+          throw offlineError;
         }
       }
 
@@ -342,6 +385,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateProfile: async (data: UpdateProfileData) => {
     set({ isLoading: true, error: null });
+
+    const currentUser = get().user;
+    const isOffline = get().isOffline;
+
+    // If offline, queue the update for later sync
+    if (isOffline) {
+      try {
+        if (currentUser?._id) {
+          // Queue update for later sync
+          await queueProfileUpdate(currentUser._id, data);
+
+          // Update local state immediately
+          const updatedUser = {
+            ...currentUser,
+            name: data.name || currentUser.name,
+            phone: data.phone || currentUser.phone,
+            profile: {
+              ...currentUser.profile,
+              ...data.profile,
+            },
+          };
+
+          // Update offline copy
+          await updateUserOffline(currentUser._id, {
+            name: updatedUser.name,
+            phone: updatedUser.phone,
+            profile: updatedUser.profile,
+          });
+
+          await SecureStore.setItemAsync("user", JSON.stringify(updatedUser));
+
+          toast.info(
+            "Saved Offline",
+            "Your changes will sync when you're back online"
+          );
+
+          set({
+            user: updatedUser,
+            isLoading: false,
+            hasPendingUpdates: true,
+            error: null,
+          });
+        }
+        return;
+      } catch (error: any) {
+        const message = "Failed to save offline. Please try again.";
+        set({ error: message, isLoading: false });
+        throw new Error(message);
+      }
+    }
+
     try {
       const response = await api.put("/auth/me", data);
 
@@ -355,8 +449,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await SecureStore.setItemAsync("user", JSON.stringify(user));
 
       // Update offline copy
-      if (get().user?._id) {
-        await updateUserOffline(get().user!._id, {
+      if (currentUser?._id) {
+        await updateUserOffline(currentUser._id, {
           name: user.name,
           phone: user.phone,
           profile: user.profile,
@@ -365,6 +459,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ user, isLoading: false, error: null });
     } catch (error: any) {
+      // If network error, queue for offline sync
+      if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+        if (currentUser?._id) {
+          await queueProfileUpdate(currentUser._id, data);
+
+          // Update local state immediately
+          const updatedUser = {
+            ...currentUser,
+            name: data.name || currentUser.name,
+            phone: data.phone || currentUser.phone,
+            profile: {
+              ...currentUser.profile,
+              ...data.profile,
+            },
+          };
+
+          await updateUserOffline(currentUser._id, {
+            name: updatedUser.name,
+            phone: updatedUser.phone,
+            profile: updatedUser.profile,
+          });
+
+          await SecureStore.setItemAsync("user", JSON.stringify(updatedUser));
+
+          toast.info(
+            "Saved Offline",
+            "Your changes will sync when you're back online"
+          );
+
+          set({
+            user: updatedUser,
+            isLoading: false,
+            isOffline: true,
+            hasPendingUpdates: true,
+            error: null,
+          });
+          return;
+        }
+      }
+
       const { message } = showApiError(error, "Failed to update profile.");
       set({ error: message, isLoading: false });
       throw new Error(message);
@@ -516,6 +650,63 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error("Auth check failed:", error);
       set({ isAuthenticated: false });
       return false;
+    }
+  },
+
+  syncPendingUpdates: async () => {
+    try {
+      const currentUser = get().user;
+      if (!currentUser?._id) return;
+
+      const pendingUpdates = await getPendingProfileUpdates(currentUser._id);
+      if (pendingUpdates.length === 0) {
+        set({ hasPendingUpdates: false });
+        return;
+      }
+
+      // Merge all pending updates
+      let mergedData: UpdateProfileData = {};
+      for (const update of pendingUpdates) {
+        mergedData = {
+          ...mergedData,
+          ...update.updateData,
+          profile: {
+            ...mergedData.profile,
+            ...update.updateData.profile,
+          },
+        };
+      }
+
+      // Try to sync with server
+      const response = await api.put("/auth/me", mergedData);
+      const user = response.data.data?.user || response.data.user;
+
+      if (user) {
+        // Mark all updates as synced
+        for (const update of pendingUpdates) {
+          await markProfileUpdateSynced(update.id);
+        }
+
+        // Clear synced updates
+        await clearSyncedProfileUpdates();
+
+        // Update local state
+        await SecureStore.setItemAsync("user", JSON.stringify(user));
+        await updateUserOffline(currentUser._id, {
+          name: user.name,
+          phone: user.phone,
+          profile: user.profile,
+        });
+
+        toast.success("Synced", "Your profile changes have been saved");
+        set({ user, hasPendingUpdates: false, isOffline: false });
+      }
+    } catch (error: any) {
+      // Silently fail if still offline
+      if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+        return;
+      }
+      console.error("Failed to sync pending updates:", error);
     }
   },
 
