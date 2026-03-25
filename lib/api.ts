@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://172.20.10.6:5000";
@@ -29,6 +30,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (error.response?.status === 503) {
+      const code = error.response?.data?.error?.code;
+      if (code === "MAINTENANCE_MODE") {
+        await AsyncStorage.setItem(
+          "@maintenance_message",
+          error.response?.data?.error?.message ||
+            "The app is temporarily unavailable for maintenance."
+        );
+      }
+    }
+
     if (error.response?.status === 401) {
       // Token expired or invalid - clear storage
       await SecureStore.deleteItemAsync("authToken");

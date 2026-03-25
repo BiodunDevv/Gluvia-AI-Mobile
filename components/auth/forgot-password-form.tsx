@@ -1,8 +1,9 @@
 import { Button, FormField } from "@/components/ui";
+import { T } from "@/hooks/use-translation";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth-store";
 import { Href, router } from "expo-router";
-import { CheckCircle, Mail } from "lucide-react-native";
+import { ArrowRight, CheckCircle, Mail } from "lucide-react-native";
 import { useState } from "react";
 import {
   Keyboard,
@@ -44,47 +45,42 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
 
   if (isSubmitted) {
     return (
-      <View className="flex-1 justify-center items-center pb-16">
-        {/* Success Icon */}
-        <View className="w-20 h-20 rounded-full bg-green-50 items-center justify-center mb-6">
+      <View className="flex-1 justify-center pb-16">
+        <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-green-50 self-center">
           <CheckCircle size={48} color="#22c55e" />
         </View>
-
-        {/* Success Message */}
-        <Text className="text-2xl font-bold text-gray-900 mb-2 text-center tracking-tight">
-          Check your email
+        <Text className="mb-2 text-center text-[28px] font-bold tracking-tight text-gray-900">
+          <T>Check your email</T>
         </Text>
-        <Text className="text-base text-gray-500 text-center mb-1 px-6 leading-6">
-          We've sent password reset instructions to:
+        <Text className="mb-1 px-6 text-center text-sm leading-6 text-gray-500">
+          <T>We've sent password reset instructions to:</T>
         </Text>
-        <Text className="text-base font-semibold text-gray-900 mb-8">
+        <Text className="mb-8 text-center text-base font-semibold text-gray-900">
           {email}
         </Text>
-
-        {/* Back to Login Button */}
         <Button
           onPress={() => router.replace("/(auth)/login" as Href)}
           className="w-full mb-4"
+          icon={<ArrowRight size={18} color="#fff" />}
         >
-          Back to Sign In
+          <T>Back to Sign In</T>
         </Button>
-
-        {/* Resend Link */}
         <TouchableOpacity
           className="py-3"
           onPress={() => setIsSubmitted(false)}
           activeOpacity={0.7}
         >
-          <Text className="text-primary text-sm font-semibold">
-            Didn't receive email? Try again
+          <Text className="text-center text-sm font-semibold text-primary">
+            <T>Didn't receive email? Try again</T>
           </Text>
         </TouchableOpacity>
 
-        {/* Help Text */}
-        <View className="mt-8 p-4 bg-gray-50 rounded-xl">
-          <Text className="text-sm text-gray-500 text-center leading-5">
-            Make sure to check your spam folder. The email should arrive within
-            a few minutes.
+        <View className="mt-8 rounded-2xl bg-gray-50 p-4">
+          <Text className="text-center text-sm leading-5 text-gray-500">
+            <T>
+              Make sure to check your spam folder. The email should arrive
+              within a few minutes.
+            </T>
           </Text>
         </View>
       </View>
@@ -95,7 +91,7 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
     <View>
       {/* Email Input */}
       <FormField label="Email" className="mb-6">
-        <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
+        <View className="h-[52px] flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-4">
           <Mail size={20} color="#71717b" />
           <TextInput
             className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
@@ -113,9 +109,18 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
         </View>
       </FormField>
 
+      <View className="mb-6 rounded-2xl bg-gray-50 p-4">
+        <Text className="text-sm leading-6 text-gray-600">
+          <T>
+            Enter the email linked to your account and we will send a secure
+            password reset link.
+          </T>
+        </Text>
+      </View>
+
       {/* Submit Button */}
       <Button onPress={handleSubmit} loading={isLoading} disabled={isLoading}>
-        Send Reset Link
+        <T>Send Reset Link</T>
       </Button>
     </View>
   );

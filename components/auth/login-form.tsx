@@ -1,4 +1,5 @@
 import { Button, FormField } from "@/components/ui";
+import { T } from "@/hooks/use-translation";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth-store";
 import { Href, router } from "expo-router";
@@ -16,7 +17,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, clearError } = useAuthStore();
+  const { login, isLoading, clearError, maintenanceMessage } = useAuthStore();
 
   const handleLogin = async () => {
     Keyboard.dismiss();
@@ -32,7 +33,11 @@ export function LoginForm() {
     try {
       clearError();
       await login({ email: email.trim().toLowerCase(), password });
-      router.replace("/current-user" as Href);
+      if (maintenanceMessage) {
+        router.replace("/maintenance" as Href);
+      } else {
+        router.replace("/current-user" as Href);
+      }
     } catch {
       // Error is already handled by the store with toast
     }
@@ -94,7 +99,7 @@ export function LoginForm() {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text className="text-sm font-semibold text-primary">
-            Forgot password?
+            <T>Forgot password?</T>
           </Text>
         </TouchableOpacity>
       </View>
@@ -104,7 +109,7 @@ export function LoginForm() {
 
       {/* Sign In Button */}
       <Button onPress={handleLogin} loading={isLoading} disabled={isLoading}>
-        Sign In
+        <T>Sign In</T>
       </Button>
     </View>
   );

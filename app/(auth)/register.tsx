@@ -1,10 +1,12 @@
 ﻿import { AuthHeader, RegisterForm } from "@/components/auth";
+import { T } from "@/hooks/use-translation";
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StatusBar,
+  Text,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
@@ -33,6 +35,15 @@ export default function RegisterScreen() {
                 rightButtonText="Sign In"
                 rightButtonHref="/(auth)/login"
               />
+
+              <View className="mt-2 mb-6">
+                <Text className="text-[28px] font-bold text-gray-900 mb-1 tracking-tight">
+                  <T>Create Account</T>
+                </Text>
+                <Text className="text-sm text-gray-500 leading-5">
+                  <T>Build your Gluvia account in a few simple steps.</T>
+                </Text>
+              </View>
 
               {/* Register Form (handles multi-step flow) */}
               <RegisterForm />

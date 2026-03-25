@@ -1,4 +1,5 @@
 import { FoodDetailModal } from "@/components/modals";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { Food, useFoodStore } from "@/store/food-store";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -279,6 +280,7 @@ const GI_FILTERS = [
 ];
 
 export default function FoodsScreen() {
+  const { t } = useTranslation();
   const { foods, isLoading, isOffline, fetchFoods, pagination } =
     useFoodStore();
   const [searchQuery, setSearchQuery] = useState("");
@@ -451,7 +453,9 @@ export default function FoodsScreen() {
         >
           <View className="flex-row items-center">
             <Ionicons name="options-outline" size={18} color="#1447e6" />
-            <Text className="ml-2 text-gray-700 font-medium">Filters</Text>
+            <Text className="ml-2 text-gray-700 font-medium">
+              <T>Filters</T>
+            </Text>
             {activeFilterCount > 0 && (
               <View className="bg-primary ml-2 w-5 h-5 rounded-full items-center justify-center">
                 <Text className="text-[10px] text-white font-bold">
@@ -473,12 +477,12 @@ export default function FoodsScreen() {
             {/* Categories */}
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-sm font-semibold text-gray-700">
-                Category
+                <T>Category</T>
               </Text>
               {hasActiveFilters && (
                 <TouchableOpacity onPress={handleClearFilters}>
                   <Text className="text-xs text-primary font-medium">
-                    Clear all
+                    <T>Clear all</T>
                   </Text>
                 </TouchableOpacity>
               )}
@@ -516,7 +520,7 @@ export default function FoodsScreen() {
 
             {/* GI Filter */}
             <Text className="text-sm font-semibold text-gray-700 mb-2">
-              Glycemic Index
+              <T>Glycemic Index</T>
             </Text>
             <View className="flex-row flex-wrap gap-2">
               {GI_FILTERS.map((filter) => (
@@ -550,7 +554,7 @@ export default function FoodsScreen() {
               <View className="flex-row items-center mr-2 bg-amber-100 px-2 py-0.5 rounded-full">
                 <Ionicons name="cloud-offline" size={12} color="#d97706" />
                 <Text className="text-[10px] text-amber-700 font-medium ml-1">
-                  Offline
+                  <T>Offline</T>
                 </Text>
               </View>
             )}
@@ -558,12 +562,14 @@ export default function FoodsScreen() {
               <Text className="font-semibold">
                 {pagination?.total || shuffledFoods.length}
               </Text>{" "}
-              food{(pagination?.total || shuffledFoods.length) !== 1 ? "s" : ""}
+              <T>
+                {`food${(pagination?.total || shuffledFoods.length) !== 1 ? "s" : ""}`}
+              </T>
             </Text>
           </View>
           {pagination && pagination.totalPages > 1 && (
             <Text className="text-xs text-gray-500">
-              Page {pagination.page} of {pagination.totalPages}
+              <T>Page</T> {pagination.page} <T>of</T> {pagination.totalPages}
             </Text>
           )}
         </View>
@@ -596,15 +602,15 @@ export default function FoodsScreen() {
         {/* Page indicator */}
         <View className="flex-row items-center justify-center mb-3">
           <Text className="text-sm text-gray-500">
-            Showing{" "}
+            <T>Showing</T>{" "}
             <Text className="font-semibold text-gray-700">
               {shuffledFoods.length}
             </Text>{" "}
-            of{" "}
+            <T>of</T>{" "}
             <Text className="font-semibold text-gray-700">
               {pagination.total}
             </Text>{" "}
-            foods
+            <T>foods</T>
           </Text>
         </View>
 
@@ -622,14 +628,14 @@ export default function FoodsScreen() {
               <>
                 <ActivityIndicator size="small" color="#1447e6" />
                 <Text className="ml-2 text-primary font-semibold">
-                  Loading...
+                  <T>Loading...</T>
                 </Text>
               </>
             ) : (
               <>
                 <Ionicons name="add-circle-outline" size={20} color="white" />
                 <Text className="ml-2 text-white font-semibold">
-                  Load More Foods
+                  <T>Load More Foods</T>
                 </Text>
               </>
             )}
@@ -673,12 +679,14 @@ export default function FoodsScreen() {
         <Ionicons name="nutrition-outline" size={48} color="#9ca3af" />
       </View>
       <Text className="text-lg font-semibold text-gray-700 mb-2">
-        {hasActiveFilters ? "No foods found" : "No Food Data Available"}
+        {hasActiveFilters ? t("No foods found") : t("No Food Data Available")}
       </Text>
       <Text className="text-sm text-gray-500 text-center mb-6">
         {hasActiveFilters
-          ? "Try adjusting your search or filters to find what you're looking for"
-          : "Go to Profile → Data & Sync to download food data"}
+          ? t(
+              "Try adjusting your search or filters to find what you're looking for"
+            )
+          : t("Go to Profile → Data & Sync to download food data")}
       </Text>
       {hasActiveFilters && (
         <TouchableOpacity
@@ -686,7 +694,9 @@ export default function FoodsScreen() {
           className="bg-primary px-6 py-3 rounded-full"
           activeOpacity={0.7}
         >
-          <Text className="text-white font-semibold">Clear All Filters</Text>
+          <Text className="text-white font-semibold">
+            <T>Clear All Filters</T>
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -700,16 +710,18 @@ export default function FoodsScreen() {
       <View className="px-5 pt-4 pb-3 bg-gray-50">
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="text-2xl font-bold text-gray-900">Foods</Text>
+            <Text className="text-2xl font-bold text-gray-900">
+              <T>Foods</T>
+            </Text>
             <Text className="text-sm text-gray-500 mt-0.5">
-              Nigerian foods & nutrition
+              <T>Nigerian foods & nutrition</T>
             </Text>
           </View>
           {isOffline && (
             <View className="bg-amber-100 px-3 py-1.5 rounded-full flex-row items-center">
               <Ionicons name="cloud-offline" size={14} color="#d97706" />
               <Text className="text-xs text-amber-700 font-medium ml-1.5">
-                Offline Mode
+                <T>Offline Mode</T>
               </Text>
             </View>
           )}

@@ -41,6 +41,10 @@ export function AnimatedTabBar({
         focused: "restaurant",
         unfocused: "restaurant-outline",
       },
+      "ai-chat": {
+        focused: "sparkles",
+        unfocused: "sparkles-outline",
+      },
       foods: {
         focused: "nutrition",
         unfocused: "nutrition-outline",
@@ -59,6 +63,7 @@ export function AnimatedTabBar({
     const labels: Record<string, string> = {
       index: "Home",
       chat: "Meals",
+      "ai-chat": "AI Chat",
       foods: "Foods",
       profile: "Profile",
     };

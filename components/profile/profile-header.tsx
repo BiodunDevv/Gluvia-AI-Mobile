@@ -25,12 +25,6 @@ export function ProfileHeader({
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
-      case "health_worker":
-        return {
-          label: "Health Worker",
-          color: "bg-green-100",
-          text: "text-green-700",
-        };
       case "user":
         return {
           label: "Patient",

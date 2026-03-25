@@ -402,6 +402,23 @@ async function loadClientVersion(): Promise<number> {
   }
 }
 
+function getApiErrorMessage(error: any, fallback: string) {
+  return (
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+}
+
+function parseSyncPayload<T>(
+  responseData: any,
+  key: string,
+  fallback: T
+): T {
+  return (responseData?.data?.[key] ?? responseData?.[key] ?? fallback) as T;
+}
+
 // ============ STORE ============
 
 export const useSyncStore = create<SyncState>((set, get) => ({
@@ -437,19 +454,29 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     try {
       const response = await api.post("/sync/meals", { mealLogs });
-      const result = response.data as UploadMealLogsResponse;
+      const results = response.data?.data || response.data?.results || {
+        added: 0,
+        duplicates: 0,
+        errors: [],
+      };
 
       set({
         isUploading: false,
         lastSyncAt: new Date().toISOString(),
       });
 
-      return result;
+      return {
+        success: Boolean(response.data?.success),
+        message:
+          response.data?.message ||
+          `${results.added || 0} meal(s) logged successfully`,
+        results,
+      };
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to upload meal logs";
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Failed to upload meal logs"
+      );
       set({ isUploading: false, syncError: errorMessage });
       throw error;
     }
@@ -464,19 +491,29 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     try {
       const response = await api.post("/sync/glucose", { glucoseLogs });
-      const result = response.data as UploadGlucoseLogsResponse;
+      const results = response.data?.data || response.data?.results || {
+        added: 0,
+        duplicates: 0,
+        errors: [],
+      };
 
       set({
         isUploading: false,
         lastSyncAt: new Date().toISOString(),
       });
 
-      return result;
+      return {
+        success: Boolean(response.data?.success),
+        message:
+          response.data?.message ||
+          `${results.added || 0} glucose reading(s) logged successfully`,
+        results,
+      };
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to upload glucose logs";
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Failed to upload glucose logs"
+      );
       set({ isUploading: false, syncError: errorMessage });
       throw error;
     }
@@ -591,10 +628,13 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       const response = await api.get("/sync/full");
       const apiResponse = response.data;
 
-      // Parse foods and rules from root level (not nested in data)
-      const foods = apiResponse.foods || [];
-      const rules = apiResponse.rules || [];
-      const serverVersion = apiResponse.serverVersion || 0;
+      const foods = parseSyncPayload<Food[]>(apiResponse, "foods", []);
+      const rules = parseSyncPayload<RuleTemplate[]>(apiResponse, "rules", []);
+      const serverVersion =
+        apiResponse?.data?.serverVersion ??
+        apiResponse?.meta?.serverVersion ??
+        apiResponse?.serverVersion ??
+        0;
 
       console.log(
         `[SYNC] Full sync received: ${foods.length} foods, ${rules.length} rules, serverVersion: ${serverVersion}`
@@ -627,16 +667,16 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       });
 
       return {
-        success: apiResponse.success,
+        success: Boolean(apiResponse.success),
         serverVersion,
         foods,
         rules,
       };
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to get full sync data";
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Failed to get full sync data"
+      );
       set({ isSyncing: false, syncError: errorMessage });
       throw error;
     }
@@ -658,11 +698,40 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         params: { clientVersion },
       });
 
-      const result = response.data as DeltaUpdatesResponse;
+      const resultData = response.data?.data || response.data;
+      const result: DeltaUpdatesResponse & {
+        requiresFullSync?: boolean;
+        reason?: string;
+      } = {
+        success: Boolean(response.data?.success),
+        serverVersion:
+          resultData?.serverVersion ?? response.data?.serverVersion ?? 0,
+        clientVersion:
+          resultData?.clientVersion ??
+          response.data?.clientVersion ??
+          clientVersion,
+        foodsChanged:
+          resultData?.foodsChanged ?? response.data?.foodsChanged ?? [],
+        rulesChanged:
+          resultData?.rulesChanged ?? response.data?.rulesChanged ?? [],
+        requiresFullSync:
+          resultData?.requiresFullSync ?? response.data?.requiresFullSync,
+        reason: resultData?.reason ?? response.data?.reason,
+      };
 
       console.log(
         `[SYNC] Delta update received: ${result.foodsChanged?.length || 0} foods changed, ${result.rulesChanged?.length || 0} rules changed, serverVersion: ${result.serverVersion}`
       );
+
+      if (result.requiresFullSync) {
+        set({
+          serverVersion: result.serverVersion,
+          isSyncing: false,
+          lastSyncAt: new Date().toISOString(),
+        });
+
+        return result;
+      }
 
       // Persist client version
       await saveClientVersion(result.serverVersion);
@@ -679,10 +748,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
       return result;
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to get updates";
+      const errorMessage = getApiErrorMessage(error, "Failed to get updates");
       set({ isSyncing: false, syncError: errorMessage });
       throw error;
     }
@@ -711,6 +777,18 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       }
 
       const updates = await getDeltaUpdates();
+
+      if ((updates as any).requiresFullSync) {
+        console.log(
+          `[SYNC] Server requested full sync: ${(updates as any).reason || "unknown_reason"}`
+        );
+        const fullResult = await getFullSync();
+        return {
+          hasChanges: true,
+          foodsUpdated: fullResult.foods.length,
+          rulesUpdated: fullResult.rules.length,
+        };
+      }
 
       let foodsUpdated = 0;
       let rulesUpdated = 0;
@@ -741,8 +819,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
           }
         }
 
-        // Update cache
-        await cacheFoods(updates.foodsChanged.map(foodToCached));
+        await clearFoodsCache();
+        await cacheFoods(updatedFoods.map(foodToCached));
 
         set({ foods: updatedFoods });
       }
@@ -773,8 +851,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
           }
         }
 
-        // Update cache
-        await cacheRules(updates.rulesChanged.map(ruleToCached));
+        await clearRulesCache();
+        await cacheRules(updatedRules.map(ruleToCached));
 
         set({ rules: updatedRules });
       }
@@ -808,7 +886,16 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       if (filters?.limit) params.limit = filters.limit;
 
       const response = await api.get("/sync/aggregations", { params });
-      const result = response.data as AggregationsResponse;
+      const resultData = response.data?.data || response.data;
+      const result: AggregationsResponse = {
+        success: Boolean(response.data?.success),
+        mealLogs: resultData?.mealLogs || response.data?.mealLogs || [],
+        glucoseLogs: resultData?.glucoseLogs || response.data?.glucoseLogs || [],
+        meta: response.data?.meta || {
+          meals: { page: 1, limit: 50, total: 0, totalPages: 0 },
+          glucose: { page: 1, limit: 50, total: 0, totalPages: 0 },
+        },
+      };
 
       // Find the most recent glucose reading (use valueMgDl from API)
       const sortedGlucose = [...(result.glucoseLogs || [])].sort(
@@ -866,10 +953,10 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
       return result;
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to get aggregations";
+      const errorMessage = getApiErrorMessage(
+        error,
+        "Failed to get aggregations"
+      );
       set({ isFetchingAggregations: false, syncError: errorMessage });
       throw error;
     }

@@ -27,3 +27,8 @@ export {
 } from "./food-detail-modal";
 
 export { LogGlucoseModal } from "./log-glucose-modal";
+export {
+  NotificationDetailModal,
+  type NotificationDetailModalProps,
+} from "./notification-detail-modal";
+export { LanguageSelectionModal } from "./language-selection-modal";

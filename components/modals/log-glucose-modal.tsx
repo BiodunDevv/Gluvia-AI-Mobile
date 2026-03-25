@@ -20,6 +20,8 @@ import {
   Check,
   Clock,
   Coffee,
+  Droplets,
+  Eye,
   Moon,
   Utensils,
   X,
@@ -95,16 +97,22 @@ const READING_TYPES: Array<{
 const SYMPTOM_OPTIONS: Array<{
   value: GlucoseSymptom;
   label: string;
-  emoji: string;
+  icon: any;
+  color: string;
 }> = [
-  { value: "none", label: "No Symptoms", emoji: "✅" },
-  { value: "dizzy", label: "Dizzy", emoji: "😵" },
-  { value: "shaky", label: "Shaky", emoji: "🫨" },
-  { value: "sweaty", label: "Sweaty", emoji: "💦" },
-  { value: "tired", label: "Tired", emoji: "😴" },
-  { value: "hungry", label: "Hungry", emoji: "🍽️" },
-  { value: "thirsty", label: "Thirsty", emoji: "🥤" },
-  { value: "blurred_vision", label: "Blurred Vision", emoji: "👁️" },
+  { value: "none", label: "No Symptoms", icon: Check, color: "#22c55e" },
+  { value: "dizzy", label: "Dizzy", icon: AlertCircle, color: "#f59e0b" },
+  { value: "shaky", label: "Shaky", icon: Activity, color: "#ef4444" },
+  { value: "sweaty", label: "Sweaty", icon: Droplets, color: "#06b6d4" },
+  { value: "tired", label: "Tired", icon: Moon, color: "#6366f1" },
+  { value: "hungry", label: "Hungry", icon: Utensils, color: "#f97316" },
+  { value: "thirsty", label: "Thirsty", icon: Droplets, color: "#3b82f6" },
+  {
+    value: "blurred_vision",
+    label: "Blurred Vision",
+    icon: Eye,
+    color: "#8b5cf6",
+  },
 ];
 
 // Glucose level interpretation
@@ -428,6 +436,7 @@ export function LogGlucoseModal({
               <View className="flex-row flex-wrap">
                 {SYMPTOM_OPTIONS.map((symptom) => {
                   const isSelected = symptoms.includes(symptom.value);
+                  const SymptomIcon = symptom.icon;
                   return (
                     <TouchableOpacity
                       key={symptom.value}
@@ -438,7 +447,11 @@ export function LogGlucoseModal({
                           : "border-gray-200 bg-white"
                       }`}
                     >
-                      <Text className="mr-1">{symptom.emoji}</Text>
+                      <SymptomIcon
+                        size={14}
+                        color={isSelected ? "#1447e6" : symptom.color}
+                        style={{ marginRight: 6 }}
+                      />
                       <Text
                         className={`text-sm ${
                           isSelected

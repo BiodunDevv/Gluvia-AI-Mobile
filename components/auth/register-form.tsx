@@ -1,4 +1,5 @@
 import { Button, FormField } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth-store";
 import { Href, router } from "expo-router";
@@ -34,6 +35,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onStepChange }: RegisterFormProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -189,12 +191,12 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
         return (
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Name Input */}
-            <FormField label="Full Name" className="mb-4">
+            <FormField label={t("Full Name")} className="mb-4">
               <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
                 <User size={20} color="#71717b" />
                 <TextInput
                   className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder="Enter your full name"
+                  placeholder={t("Enter your full name")}
                   placeholderTextColor="#9ca3af"
                   value={name}
                   onChangeText={setName}
@@ -206,12 +208,12 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             </FormField>
 
             {/* Email Input */}
-            <FormField label="Email Address" className="mb-4">
+            <FormField label={t("Email Address")} className="mb-4">
               <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
                 <Mail size={20} color="#71717b" />
                 <TextInput
                   className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder="Enter your email"
+                  placeholder={t("Enter your email")}
                   placeholderTextColor="#9ca3af"
                   value={email}
                   onChangeText={setEmail}
@@ -230,12 +232,12 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
         return (
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Phone Input (Optional) */}
-            <FormField label="Phone Number" optional className="mb-4">
+            <FormField label={t("Phone Number")} optional className="mb-4">
               <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
                 <Phone size={20} color="#71717b" />
                 <TextInput
                   className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder="Enter your phone number"
+                  placeholder={t("Enter your phone number")}
                   placeholderTextColor="#9ca3af"
                   value={phone}
                   onChangeText={setPhone}
@@ -247,12 +249,12 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             </FormField>
 
             {/* Password Input */}
-            <FormField label="Password" className="mb-4">
+            <FormField label={t("Password")} className="mb-4">
               <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
                 <Lock size={20} color="#71717b" />
                 <TextInput
                   className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder="Minimum 8 characters"
+                  placeholder={t("Minimum 8 characters")}
                   placeholderTextColor="#9ca3af"
                   value={password}
                   onChangeText={setPassword}
@@ -289,17 +291,17 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
                   password.length >= 8 ? "text-green-600" : "text-gray-500"
                 }`}
               >
-                At least 8 characters
+                <T>At least 8 characters</T>
               </Text>
             </View>
 
             {/* Confirm Password Input */}
-            <FormField label="Confirm Password" className="mb-4">
+            <FormField label={t("Confirm Password")} className="mb-4">
               <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
                 <Lock size={20} color="#71717b" />
                 <TextInput
                   className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder="Re-enter your password"
+                  placeholder={t("Re-enter your password")}
                   placeholderTextColor="#9ca3af"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -330,24 +332,30 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             {/* Review Card */}
             <View className="bg-gray-50 rounded-2xl p-5 mb-6">
               <Text className="text-sm font-semibold text-gray-900 mb-3">
-                Account Details
+                <T>Account Details</T>
               </Text>
               <View className="space-y-2">
                 <View className="flex-row justify-between py-1.5">
-                  <Text className="text-sm text-gray-500">Name</Text>
+                  <Text className="text-sm text-gray-500">
+                    <T>Name</T>
+                  </Text>
                   <Text className="text-sm font-medium text-gray-900">
                     {name}
                   </Text>
                 </View>
                 <View className="flex-row justify-between py-1.5">
-                  <Text className="text-sm text-gray-500">Email</Text>
+                  <Text className="text-sm text-gray-500">
+                    <T>Email</T>
+                  </Text>
                   <Text className="text-sm font-medium text-gray-900">
                     {email}
                   </Text>
                 </View>
                 {phone && (
                   <View className="flex-row justify-between py-1.5">
-                    <Text className="text-sm text-gray-500">Phone</Text>
+                    <Text className="text-sm text-gray-500">
+                      <T>Phone</T>
+                    </Text>
                     <Text className="text-sm font-medium text-gray-900">
                       {phone}
                     </Text>
@@ -371,19 +379,19 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
               </View>
               <View className="flex-1">
                 <Text className="text-sm text-gray-700 leading-5">
-                  I agree to the{" "}
+                  <T>I agree to the</T>{" "}
                   <Text
                     className="text-primary font-semibold"
                     onPress={() => setShowTermsModal(true)}
                   >
-                    Terms of Service
+                    <T>Terms of Service</T>
                   </Text>{" "}
-                  and{" "}
+                  <T>and</T>{" "}
                   <Text
                     className="text-primary font-semibold"
                     onPress={() => setShowPrivacyModal(true)}
                   >
-                    Privacy Policy
+                    <T>Privacy Policy</T>
                   </Text>
                 </Text>
               </View>
@@ -392,9 +400,11 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             {/* Data Usage Notice */}
             <View className="bg-primary/5 rounded-xl p-4 mb-4">
               <Text className="text-xs text-gray-600 leading-5">
-                🔒 Your health data is encrypted and stored securely. We never
-                share your personal information with third parties without your
-                explicit consent.
+                <T>
+                  🔒 Your health data is encrypted and stored securely. We never
+                  share your personal information with third parties without your
+                  explicit consent.
+                </T>
               </Text>
             </View>
           </Animated.View>
@@ -413,10 +423,10 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
       {/* Title */}
       <View className="mb-8">
         <Text className="text-[32px] font-bold text-gray-900 mb-2 tracking-tight">
-          {getStepTitle()}
+          <T>{getStepTitle()}</T>
         </Text>
         <Text className="text-base text-gray-500 leading-6">
-          {getStepSubtitle()}
+          <T>{getStepSubtitle()}</T>
         </Text>
       </View>
 
@@ -435,7 +445,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             icon={<ArrowLeft size={20} color="#374151" />}
             iconPosition="left"
           >
-            Back
+            <T>Back</T>
           </Button>
         )}
 
@@ -446,7 +456,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             icon={<ArrowRight size={20} color="#ffffff" />}
             iconPosition="right"
           >
-            Continue
+            <T>Continue</T>
           </Button>
         ) : (
           <Button
@@ -455,7 +465,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             disabled={isLoading || !consentAccepted}
             className="flex-1"
           >
-            Create Account
+            <T>Create Account</T>
           </Button>
         )}
       </View>

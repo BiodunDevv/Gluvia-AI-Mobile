@@ -1,11 +1,14 @@
 import { useAuthStore } from "@/store/auth-store";
+import { isProfileComplete } from "@/lib/profile-completion";
+import { T } from "@/hooks/use-translation";
 import { Href, router } from "expo-router";
 import {
   ArrowRight,
+  Globe2,
   Heart,
   LogIn,
   LogOut,
-  Sparkles,
+  MessageCircle,
   TrendingUp,
   WifiOff,
 } from "lucide-react-native";
@@ -30,7 +33,9 @@ export default function CurrentUserScreen() {
   }, []);
 
   const handleContinueToDashboard = () => {
-    router.replace("/(tabs)" as Href);
+    router.replace(
+      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href
+    );
   };
 
   const handleSignIn = () => {
@@ -39,6 +44,10 @@ export default function CurrentUserScreen() {
 
   const handleSignUp = () => {
     router.replace("/(auth)/register" as Href);
+  };
+
+  const handleLanguage = () => {
+    router.push("/language" as Href);
   };
 
   const handleLogout = async () => {
@@ -60,7 +69,7 @@ export default function CurrentUserScreen() {
           </View>
           <ActivityIndicator size="large" color="#1447e6" />
           <Text className="text-gray-400 mt-4 text-sm">
-            Checking your session...
+            <T>Checking your session...</T>
           </Text>
         </View>
       </SafeAreaView>
@@ -69,12 +78,6 @@ export default function CurrentUserScreen() {
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
-      case "health_worker":
-        return {
-          label: "Health Worker",
-          color: "bg-green-500/20",
-          text: "text-green-100",
-        };
       case "user":
         return {
           label: "Patient",
@@ -100,7 +103,7 @@ export default function CurrentUserScreen() {
           <View className="flex-1 px-6">
             {/* Header */}
             <View className="flex-row items-center justify-between pt-4 pb-8">
-              <View className="flex-row items-center">
+            <View className="flex-row items-center">
                 <Image
                   source={require("@/assets/images/logo.png")}
                   className="w-9 h-9"
@@ -110,20 +113,29 @@ export default function CurrentUserScreen() {
                   Gluvia
                 </Text>
               </View>
-              {isOffline && (
-                <View className="flex-row items-center px-3 py-1.5 bg-amber-50 rounded-full">
-                  <WifiOff size={14} color="#d97706" />
-                  <Text className="text-xs font-medium text-amber-700 ml-1.5">
-                    Offline
-                  </Text>
-                </View>
-              )}
+              <View className="flex-row items-center gap-2">
+                {isOffline ? (
+                  <View className="flex-row items-center px-3 py-1.5 bg-amber-50 rounded-full">
+                    <WifiOff size={14} color="#d97706" />
+                    <Text className="text-xs font-medium text-amber-700 ml-1.5">
+                      <T>Offline</T>
+                    </Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity
+                  className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+                  onPress={handleLanguage}
+                  activeOpacity={0.8}
+                >
+                  <Globe2 size={18} color="#374151" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Welcome Message */}
             <View className="mb-6">
               <Text className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
-                Welcome back,
+                <T>Welcome back</T>,
               </Text>
               <Text className="text-[28px] font-bold text-primary tracking-tight">
                 {user.name?.split(" ")[0] || "there"}!
@@ -170,7 +182,7 @@ export default function CurrentUserScreen() {
             {/* Quick Actions */}
             <View className="mb-8">
               <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Quick Actions
+                <T>Quick Actions</T>
               </Text>
               <View className="flex-row gap-3">
                 <TouchableOpacity
@@ -182,7 +194,7 @@ export default function CurrentUserScreen() {
                     <Heart size={22} color="#1447e6" />
                   </View>
                   <Text className="text-sm font-semibold text-gray-900">
-                    Dashboard
+                    <T>Dashboard</T>
                   </Text>
                 </TouchableOpacity>
 
@@ -194,7 +206,7 @@ export default function CurrentUserScreen() {
                     <TrendingUp size={22} color="#10b981" />
                   </View>
                   <Text className="text-sm font-semibold text-gray-900">
-                    Progress
+                    <T>Progress</T>
                   </Text>
                 </TouchableOpacity>
 
@@ -203,10 +215,10 @@ export default function CurrentUserScreen() {
                   activeOpacity={0.7}
                 >
                   <View className="w-12 h-12 rounded-xl bg-amber-100 items-center justify-center mb-3">
-                    <Sparkles size={22} color="#f59e0b" />
+                    <MessageCircle size={22} color="#f59e0b" />
                   </View>
                   <Text className="text-sm font-semibold text-gray-900">
-                    AI Tips
+                    <T>AI Tips</T>
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -220,7 +232,11 @@ export default function CurrentUserScreen() {
                 activeOpacity={0.8}
               >
                 <Text className="text-white text-base font-semibold mr-2">
-                  Continue to Dashboard
+                  {isProfileComplete(user) ? (
+                    <T>Continue to Dashboard</T>
+                  ) : (
+                    <T>Complete Profile</T>
+                  )}
                 </Text>
                 <ArrowRight size={20} color="#fff" />
               </TouchableOpacity>
@@ -232,12 +248,16 @@ export default function CurrentUserScreen() {
               >
                 <LogOut size={20} color="#374151" />
                 <Text className="text-gray-700 text-base font-semibold ml-2">
-                  Log Out
+                  <T>Log Out</T>
                 </Text>
               </TouchableOpacity>
 
               <Text className="text-center text-xs text-gray-400 mt-4">
-                Ready to continue your health journey?
+                {isProfileComplete(user) ? (
+                  <T>Ready to continue your health journey?</T>
+                ) : (
+                  <T>Finish your profile to unlock safe recommendations.</T>
+                )}
               </Text>
             </View>
           </View>
@@ -252,13 +272,24 @@ export default function CurrentUserScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View className="flex-1 px-6">
         {/* Header */}
-        <View className="flex-row items-center pt-4 pb-8">
-          <Image
-            source={require("@/assets/images/logo.png")}
-            className="w-9 h-9"
-            resizeMode="contain"
-          />
-          <Text className="text-xl font-bold text-gray-900 ml-2.5">Gluvia</Text>
+        <View className="flex-row items-center justify-between pt-4 pb-8">
+          <View className="flex-row items-center">
+            <Image
+              source={require("@/assets/images/logo.png")}
+              className="w-9 h-9"
+              resizeMode="contain"
+            />
+            <Text className="text-xl font-bold text-gray-900 ml-2.5">
+              Gluvia
+            </Text>
+          </View>
+          <TouchableOpacity
+            className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+            onPress={handleLanguage}
+            activeOpacity={0.8}
+          >
+            <Globe2 size={18} color="#374151" />
+          </TouchableOpacity>
         </View>
 
         {/* Hero Section */}
@@ -272,14 +303,13 @@ export default function CurrentUserScreen() {
               />
             </View>
             <Text className="text-[32px] font-bold text-gray-900 tracking-tight mb-2 text-center">
-              Your AI Health
+              <T>Your AI Health</T>
             </Text>
             <Text className="text-[32px] font-bold text-primary tracking-tight mb-4 text-center">
-              Companion
+              <T>Companion</T>
             </Text>
             <Text className="text-base text-gray-500 text-center leading-6 px-4">
-              Manage your diabetes with personalized meal guidance, powered by
-              AI
+              <T>Manage your diabetes with personalized meal guidance, powered by AI</T>
             </Text>
           </View>
 
@@ -316,7 +346,9 @@ export default function CurrentUserScreen() {
             onPress={handleSignIn}
             activeOpacity={0.8}
           >
-            <Text className="text-white text-base font-semibold">Sign In</Text>
+            <Text className="text-white text-base font-semibold">
+              <T>Sign In</T>
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -325,12 +357,15 @@ export default function CurrentUserScreen() {
             activeOpacity={0.8}
           >
             <Text className="text-gray-700 text-base font-semibold">
-              Create Account
+              <T>Create Account</T>
             </Text>
           </TouchableOpacity>
 
           <Text className="text-center text-xs text-gray-400 mt-6 leading-5">
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            <T>
+              By continuing, you agree to our Terms of Service and Privacy
+              Policy
+            </T>
           </Text>
         </View>
       </View>
@@ -360,10 +395,12 @@ function FeatureItem({
         <Icon size={22} color={iconColor} />
       </View>
       <View className="flex-1 ml-4">
-        <Text className="text-[15px] font-semibold text-gray-900 mb-0.5">
-          {title}
+              <Text className="text-[15px] font-semibold text-gray-900 mb-0.5">
+          <T>{title}</T>
+              </Text>
+        <Text className="text-sm text-gray-500">
+          <T>{description}</T>
         </Text>
-        <Text className="text-sm text-gray-500">{description}</Text>
       </View>
     </View>
   );

@@ -1,4 +1,5 @@
 import { AuthHeader, LegalModal, LoginForm } from "@/components/auth";
+import { T } from "@/hooks/use-translation";
 import { useState } from "react";
 import {
   Keyboard,
@@ -44,10 +45,10 @@ export default function LoginScreen() {
               {/* Title */}
               <View className="mt-2 mb-6">
                 <Text className="text-[28px] font-bold text-gray-900 mb-1 tracking-tight">
-                  Welcome back
+                  <T>Welcome back</T>
                 </Text>
                 <Text className="text-sm text-gray-500 leading-5">
-                  Sign in to continue your health journey
+                  <T>Sign in to continue your health journey</T>
                 </Text>
               </View>
 
@@ -59,23 +60,23 @@ export default function LoginScreen() {
               {/* Footer */}
               <View className="py-4 pb-6">
                 <Text className="text-center text-xs text-gray-400 leading-5">
-                  By continuing, you agree to our{" "}
+                  <T>By continuing, you agree to our</T>{" "}
                   <Text
                     className="text-primary font-medium"
                     onPress={() =>
                       setLegalModal({ visible: true, type: "terms" })
                     }
                   >
-                    Terms of Service
+                    <T>Terms of Service</T>
                   </Text>{" "}
-                  and{" "}
+                  <T>and</T>{" "}
                   <Text
                     className="text-primary font-medium"
                     onPress={() =>
                       setLegalModal({ visible: true, type: "privacy" })
                     }
                   >
-                    Privacy Policy
+                    <T>Privacy Policy</T>
                   </Text>
                 </Text>
               </View>

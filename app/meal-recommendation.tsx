@@ -1,15 +1,12 @@
-/**
- * Meal Recommendation Screen
- *
- * Professional interactive meal picker with time-based suggestions
- * and personalized food recommendations for diabetes management.
- */
-
+import { AppScreenHeader } from "@/components/ui";
 import {
   LogGlucoseModal,
   MealSummaryModal,
   SearchFoodModal,
 } from "@/components/modals";
+import { T, useTranslation } from "@/hooks/use-translation";
+import { translateDynamicText } from "@/lib/translator";
+import api from "@/lib/api";
 import {
   Food,
   generateMealRecommendation,
@@ -50,17 +47,18 @@ import {
   Leaf,
   Moon,
   Plus,
+  RefreshCcw,
   Search,
-  Sparkles,
   Sun,
+  Target,
   Utensils,
+  Wallet,
   Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -76,7 +74,13 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const handleBack = () => {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.dismiss();
+  }
+};
 
 // Meal type icons and colors
 const MEAL_CONFIG: Record<
@@ -313,29 +317,30 @@ function MealTypeButton({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
       }}
-      className={`flex-1 mx-1 p-4 rounded-2xl items-center ${
-        isActive ? "border-2 border-primary" : "border border-gray-200"
+      className={`mr-3 rounded-2xl border px-4 py-3 ${
+        isActive ? "border-primary bg-primary/5" : "border-gray-200 bg-white"
       }`}
-      style={{
-        backgroundColor: isActive ? config.color + "15" : "#fff",
-      }}
     >
-      <View
-        className="w-12 h-12 rounded-xl items-center justify-center mb-2"
-        style={{ backgroundColor: config.color + "20" }}
-      >
-        <Icon size={24} color={config.color} />
+      <View className="flex-row items-center">
+        <View
+          className="h-10 w-10 items-center justify-center rounded-xl"
+          style={{ backgroundColor: config.color + "20" }}
+        >
+          <Icon size={20} color={config.color} />
+        </View>
+        <View className="ml-3">
+          <Text
+            className={`text-sm font-semibold ${
+              isActive ? "text-gray-900" : "text-gray-700"
+            }`}
+          >
+            {info.title}
+          </Text>
+          <Text className="text-xs text-gray-500">
+            {info.carbRange.min}-{info.carbRange.max}g
+          </Text>
+        </View>
       </View>
-      <Text
-        className={`text-sm font-semibold ${
-          isActive ? "text-gray-800" : "text-gray-600"
-        }`}
-      >
-        {info.title}
-      </Text>
-      <Text className="text-xs text-gray-400 mt-0.5">
-        {info.carbRange.min}-{info.carbRange.max}g carbs
-      </Text>
     </Pressable>
   );
 }
@@ -348,6 +353,7 @@ function CategorySection({
   onSelectFood,
   icon: Icon,
   iconColor,
+  defaultExpanded = false,
 }: {
   title: string;
   foods: RecommendedFood[];
@@ -355,8 +361,9 @@ function CategorySection({
   onSelectFood: (food: RecommendedFood) => void;
   icon: any;
   iconColor: string;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   if (foods.length === 0) return null;
 
@@ -403,6 +410,31 @@ function CategorySection({
   );
 }
 
+function CompactMetric({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  color: string;
+}) {
+  return (
+    <View className="min-w-[108px] flex-1 rounded-2xl bg-gray-50 p-3">
+      <View
+        className="h-9 w-9 items-center justify-center rounded-xl"
+        style={{ backgroundColor: `${color}20` }}
+      >
+        <Icon size={16} color={color} />
+      </View>
+      <Text className="mt-2 text-xs font-medium text-gray-500">{label}</Text>
+      <Text className="mt-1 text-sm font-semibold text-gray-900">{value}</Text>
+    </View>
+  );
+}
+
 // Render FoodCard for SearchModal (extracted for reuse)
 function renderFoodCardForSearch(
   food: RecommendedFood,
@@ -412,24 +444,27 @@ function renderFoodCardForSearch(
   return <FoodCard food={food} onSelect={onSelect} isSelected={isSelected} />;
 }
 
-// Fisher-Yates shuffle for randomizing arrays
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
+interface RecommendationExplanation {
+  explanation: string;
+  source: "groq" | "fallback";
+  safeFallbackUsed: boolean;
 }
 
 // Main Screen Component
 export default function MealRecommendationScreen() {
+  const { t, language } = useTranslation();
   const params = useLocalSearchParams<{ mealType?: string }>();
   const { user } = useAuthStore();
   const { foods, fetchFoods, isLoading: foodsLoading } = useFoodStore();
   const { rules, fetchRules, isLoading: rulesLoading } = useRuleStore();
-  const { uploadMealLogs, isUploading, lastGlucoseReading, getAggregations } =
-    useSyncStore();
+  const {
+    uploadMealLogs,
+    isUploading,
+    lastGlucoseReading,
+    getAggregations,
+    mealLogs,
+    isOnline,
+  } = useSyncStore();
 
   // Use mealType from params if provided, otherwise use current time-based meal
   const initialMealType = (params.mealType as MealType) || getCurrentMealType();
@@ -444,6 +479,22 @@ export default function MealRecommendationScreen() {
   const [showGlucoseModal, setShowGlucoseModal] = useState(false);
   const [isLoggingMeal, setIsLoggingMeal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [variationSeed, setVariationSeed] = useState(0);
+  const [recommendationExplanation, setRecommendationExplanation] =
+    useState<RecommendationExplanation | null>(null);
+  const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
+  const [translatedExplanation, setTranslatedExplanation] = useState<
+    string | null
+  >(null);
+  const [translatedTimeContext, setTranslatedTimeContext] = useState<
+    string | null
+  >(null);
+  const [translatedPreviousMealText, setTranslatedPreviousMealText] = useState<
+    string | null
+  >(null);
+  const [translatedAlerts, setTranslatedAlerts] = useState<string[]>([]);
+  const config = MEAL_CONFIG[selectedMealType];
+  const mealInfo = getMealTypeInfo(selectedMealType);
 
   // Update meal type when params change
   useEffect(() => {
@@ -460,10 +511,109 @@ export default function MealRecommendationScreen() {
     () => ({
       profile: user?.profile,
       lastGlucose: lastGlucoseValue,
-      todaysMeals: [],
+      todaysMeals: mealLogs
+        .slice(0, 10)
+        .map((meal) => ({
+          mealType: meal.mealType,
+          carbs: meal.calculatedTotals?.carbs || 0,
+        })),
     }),
-    [user?.profile, lastGlucoseValue]
+    [user?.profile, lastGlucoseValue, mealLogs]
   );
+  const previousMeal = useMemo(() => {
+    const sortedMeals = [...mealLogs].sort(
+      (left, right) =>
+        new Date(right.timestamp || right.createdAt).getTime() -
+        new Date(left.timestamp || left.createdAt).getTime()
+    );
+
+    return sortedMeals.find((meal) => meal.mealType !== selectedMealType) || null;
+  }, [mealLogs, selectedMealType]);
+  const todaysCarbs = useMemo(
+    () =>
+      mealLogs.reduce(
+        (sum, meal) => sum + (meal.calculatedTotals?.carbs || 0),
+        0
+      ),
+    [mealLogs]
+  );
+  const constraintItems = useMemo(() => {
+    const profile = user?.profile;
+
+    return [
+      {
+        label: "Carb target",
+        value: recommendation
+          ? `${Math.round(recommendation.maxCarbsAllowed)}g ceiling`
+          : `${mealInfo.carbRange.min}-${mealInfo.carbRange.max}g`,
+        icon: Target,
+        color: "#1447e6",
+      },
+      {
+        label: "Budget lens",
+        value:
+          profile?.incomeBracket === "low"
+            ? "Budget-first foods"
+            : profile?.incomeBracket === "high"
+              ? "Best-fit variety"
+              : "Balanced cost",
+        icon: Wallet,
+        color: "#8b5cf6",
+      },
+      {
+        label: "Daily carbs used",
+        value: `${Math.round(todaysCarbs)}g today`,
+        icon: Zap,
+        color: "#f59e0b",
+      },
+    ];
+  }, [
+    recommendation,
+    todaysCarbs,
+    user?.profile,
+  ]);
+  const selectedCarbs = useMemo(
+    () =>
+      Math.round(
+        selectedFoods.reduce((sum, food) => sum + food.suggestedPortion.carbs_g, 0) *
+          10
+      ) / 10,
+    [selectedFoods]
+  );
+  const compactTips = useMemo(
+    () => recommendation?.tips?.slice(0, 2) || [],
+    [recommendation?.tips]
+  );
+  const glucoseTone = useMemo(() => {
+    if (!lastGlucoseReading) {
+      return null;
+    }
+
+    if (lastGlucoseReading.valueMgDl < 70) {
+      return {
+        bg: "#fef2f2",
+        text: "#b91c1c",
+        border: "#fecaca",
+        message: `Last reading was ${lastGlucoseReading.valueMgDl} ${lastGlucoseReading.unit}. Choose a balanced meal and monitor closely.`,
+      };
+    }
+
+    if (lastGlucoseReading.valueMgDl > 180) {
+      return {
+        bg: "#fffbeb",
+        text: "#b45309",
+        border: "#fde68a",
+        message: `Last reading was ${lastGlucoseReading.valueMgDl} ${lastGlucoseReading.unit}. Keep this meal lighter on carbs.`,
+      };
+    }
+
+    return {
+      bg: "#ecfdf5",
+      text: "#047857",
+      border: "#a7f3d0",
+      message: `Last reading was ${lastGlucoseReading.valueMgDl} ${lastGlucoseReading.unit}. Your current plan can stay balanced.`,
+    };
+  }, [lastGlucoseReading]);
 
   // Fetch aggregations on mount only if we don't have glucose data
   useEffect(() => {
@@ -472,25 +622,19 @@ export default function MealRecommendationScreen() {
     }
   }, []);
 
-  // Generate recommendations when data changes - shuffle for variety
+  // Generate recommendations when data changes
   useEffect(() => {
     if (foods.length > 0 && rules.length > 0) {
       const rec = generateMealRecommendation(
-        shuffleArray(foods as Food[]),
+        foods as Food[],
         rules as RuleTemplate[],
         userContext,
-        selectedMealType
+        selectedMealType,
+        { variationSeed }
       );
-      // Shuffle the recommended foods for variety
-      if (rec) {
-        rec.mainDishes = shuffleArray(rec.mainDishes);
-        rec.sideDishes = shuffleArray(rec.sideDishes);
-        rec.proteins = shuffleArray(rec.proteins);
-        rec.snacks = shuffleArray(rec.snacks);
-      }
       setRecommendation(rec);
     }
-  }, [foods, rules, userContext, selectedMealType]);
+  }, [foods, rules, userContext, selectedMealType, variationSeed]);
 
   // Load data on mount
   useEffect(() => {
@@ -584,12 +728,12 @@ export default function MealRecommendationScreen() {
 
       // Ask if user wants to log glucose
       Alert.alert(
-        "Meal Logged! 🎉",
-        "Would you like to log your glucose reading now?",
+        t("Meal Logged"),
+        t("Would you like to log your glucose reading now?"),
         [
-          { text: "Later", style: "cancel" },
+          { text: t("Later"), style: "cancel" },
           {
-            text: "Log Glucose",
+            text: t("Log Glucose"),
             onPress: () => setShowGlucoseModal(true),
           },
         ]
@@ -597,7 +741,7 @@ export default function MealRecommendationScreen() {
     } catch (error) {
       console.error("Failed to log meal:", error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "Failed to log meal. Please try again.");
+      Alert.alert(t("Error"), t("Failed to log meal. Please try again."));
     } finally {
       setIsLoggingMeal(false);
     }
@@ -611,47 +755,170 @@ export default function MealRecommendationScreen() {
       fetchRules(),
       getAggregations({ limit: 10 }),
     ]);
+    setVariationSeed((prev) => prev + 1);
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    const fetchExplanation = async () => {
+      if (!recommendation) {
+        setRecommendationExplanation(null);
+        return;
+      }
+
+      const explanationFoods = [
+        ...recommendation.mainDishes.slice(0, 1),
+        ...recommendation.proteins.slice(0, 1),
+        ...recommendation.sideDishes.slice(0, 1),
+        ...(selectedMealType === "snack"
+          ? recommendation.snacks.slice(0, 1)
+          : []),
+      ];
+
+      if (explanationFoods.length === 0) {
+        setRecommendationExplanation(null);
+        return;
+      }
+
+      if (!isOnline) {
+        setRecommendationExplanation(null);
+        return;
+      }
+
+      setIsLoadingExplanation(true);
+      try {
+        const response = await api.post("/reports/recommendations/explain", {
+          mealType: selectedMealType,
+          selectedFoods: explanationFoods,
+          maxCarbsAllowed: recommendation.maxCarbsAllowed,
+          lastGlucose: lastGlucoseValue,
+          alerts: recommendation.alerts,
+          tips: recommendation.tips,
+          profile: user?.profile,
+        });
+
+        setRecommendationExplanation(response.data?.data || null);
+      } catch {
+        setRecommendationExplanation({
+          explanation:
+            recommendation.tips?.[0] ||
+            "This recommendation is based on your glucose context, meal type, and the best available diabetes-friendly foods.",
+          source: "fallback",
+          safeFallbackUsed: true,
+        });
+      } finally {
+        setIsLoadingExplanation(false);
+      }
+    };
+
+    fetchExplanation();
+  }, [recommendation, selectedMealType, user?.profile, lastGlucoseValue, isOnline]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const translateDynamicRecommendationText = async () => {
+      if (!isOnline || language === "english") {
+        setTranslatedExplanation(null);
+        setTranslatedTimeContext(null);
+        setTranslatedPreviousMealText(null);
+        setTranslatedAlerts([]);
+        return;
+      }
+
+      const timeContext =
+        recommendation?.timeContext || getTimeContextMessage(selectedMealType);
+      const previousMealText = previousMeal
+        ? `Your last logged ${previousMeal.mealType} included about ${Math.round(
+            previousMeal.calculatedTotals?.carbs || 0
+          )}g of carbs. This recommendation adjusts the next meal toward a steadier balance instead of repeating the same pattern.`
+        : null;
+
+      const [timeContextText, explanationText, previousMealTranslated] =
+        await Promise.all([
+          translateDynamicText(timeContext, language),
+          recommendationExplanation?.explanation
+            ? translateDynamicText(recommendationExplanation.explanation, language)
+            : Promise.resolve(null),
+          previousMealText
+            ? translateDynamicText(previousMealText, language)
+            : Promise.resolve(null),
+        ]);
+
+      const alertTexts = recommendation?.alerts?.length
+        ? await Promise.all(
+            recommendation.alerts.map((alert) =>
+              translateDynamicText(alert.message, language)
+            )
+          )
+        : [];
+
+      if (!cancelled) {
+        setTranslatedTimeContext(timeContextText);
+        setTranslatedExplanation(explanationText);
+        setTranslatedPreviousMealText(previousMealTranslated);
+        setTranslatedAlerts(alertTexts);
+      }
+    };
+
+    translateDynamicRecommendationText().catch(() => {
+      if (!cancelled) {
+        setTranslatedExplanation(null);
+        setTranslatedTimeContext(null);
+        setTranslatedPreviousMealText(null);
+        setTranslatedAlerts([]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isOnline,
+    language,
+    previousMeal,
+    recommendation?.alerts,
+    recommendation?.timeContext,
+    recommendationExplanation?.explanation,
+    selectedMealType,
+  ]);
+
   const isLoading = foodsLoading || rulesLoading;
-  const config = MEAL_CONFIG[selectedMealType];
-  const mealInfo = getMealTypeInfo(selectedMealType);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      {/* Header */}
-      <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <View className="flex-row items-center justify-between">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-          >
-            <ArrowLeft size={20} color="#374151" />
-          </Pressable>
-
-          <View className="flex-1 items-center">
-            <Text className="text-lg font-bold text-gray-800">
-              Meal Recommendations
-            </Text>
-            <Text className="text-xs text-gray-500">
-              {getTimeContextMessage(selectedMealType).slice(0, 40)}...
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={() => setShowSearch(true)}
-            className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-          >
-            <Search size={20} color="#374151" />
-          </Pressable>
-        </View>
+      <View className="border-b border-gray-100">
+        <AppScreenHeader
+          title="Meal Recommendation"
+          onBack={handleBack}
+          rightSlot={
+            <View className="flex-row">
+              <Pressable
+                onPress={() => {
+                  setSelectedFoods([]);
+                  setVariationSeed((prev) => prev + 1);
+                }}
+                className="mr-2 h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+              >
+                <RefreshCcw size={18} color="#374151" />
+              </Pressable>
+              <Pressable
+                onPress={() => setShowSearch(true)}
+                className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+              >
+                <Search size={20} color="#374151" />
+              </Pressable>
+            </View>
+          }
+        />
       </View>
 
       {isLoading && !recommendation ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#1447e6" />
-          <Text className="text-gray-500 mt-4">Loading recommendations...</Text>
+          <Text className="text-gray-500 mt-4">
+            <T>Loading recommendations...</T>
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -665,9 +932,13 @@ export default function MealRecommendationScreen() {
           {/* Meal Type Selector */}
           <View className="px-4 py-4">
             <Text className="text-sm font-semibold text-gray-600 mb-3">
-              What meal are you planning?
+              <T>What meal are you planning?</T>
             </Text>
-            <View className="flex-row">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 16 }}
+            >
               {(["breakfast", "lunch", "dinner", "snack"] as MealType[]).map(
                 (type) => (
                   <MealTypeButton
@@ -681,139 +952,162 @@ export default function MealRecommendationScreen() {
                   />
                 )
               )}
-            </View>
+            </ScrollView>
           </View>
 
-          {/* Time-based Suggestion Banner */}
-          {selectedMealType === getCurrentMealType() && (
-            <Animated.View
-              entering={FadeIn}
-              className="mx-4 mb-4 p-4 rounded-2xl"
-              style={{ backgroundColor: config.color + "15" }}
-            >
-              <View className="flex-row items-center">
-                <View
-                  className="w-10 h-10 rounded-xl items-center justify-center"
-                  style={{ backgroundColor: config.color + "30" }}
-                >
-                  <Clock size={20} color={config.color} />
-                </View>
-                <View className="flex-1 ml-3">
-                  <Text className="font-semibold text-gray-800">
-                    Perfect timing for {mealInfo.title.toLowerCase()}!
-                  </Text>
-                  <Text className="text-xs text-gray-600 mt-0.5">
-                    Aim for {mealInfo.carbRange.min}-{mealInfo.carbRange.max}g
-                    of carbs
-                  </Text>
-                </View>
-                <Sparkles size={18} color={config.color} />
+          <Animated.View
+            entering={FadeInUp.delay(100)}
+            className="mx-4 mb-4 rounded-3xl border border-gray-100 bg-white p-4"
+          >
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-xs font-semibold uppercase tracking-[1px] text-primary">
+                  <T>Meal Snapshot</T>
+                </Text>
+                <Text className="mt-1 text-lg font-bold text-gray-900">
+                  {mealInfo.title}
+                </Text>
+                <Text className="mt-1 text-sm leading-6 text-gray-600">
+                  {translatedTimeContext ||
+                    recommendation?.timeContext ||
+                    mealInfo.description}
+                </Text>
               </View>
-            </Animated.View>
-          )}
-
-          {/* Last Glucose Reading Banner */}
-          {lastGlucoseReading && (
-            <Animated.View
-              entering={FadeInUp.delay(100)}
-              className="mx-4 mb-4 p-4 rounded-2xl bg-white border border-gray-100"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-              }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center flex-1">
-                  <View
-                    className="w-10 h-10 rounded-xl items-center justify-center"
-                    style={{
-                      backgroundColor:
-                        lastGlucoseReading.valueMgDl >= 70 &&
-                        lastGlucoseReading.valueMgDl <= 180
-                          ? "#10b98120"
-                          : lastGlucoseReading.valueMgDl < 70
-                            ? "#ef444420"
-                            : "#f59e0b20",
-                    }}
-                  >
-                    <Activity
-                      size={20}
-                      color={
-                        lastGlucoseReading.valueMgDl >= 70 &&
-                        lastGlucoseReading.valueMgDl <= 180
-                          ? "#10b981"
-                          : lastGlucoseReading.valueMgDl < 70
-                            ? "#ef4444"
-                            : "#f59e0b"
-                      }
-                    />
-                  </View>
-                  <View className="ml-3 flex-1">
-                    <Text className="text-xs text-gray-500">
-                      Last Glucose Reading
-                    </Text>
-                    <Text className="text-lg font-bold text-gray-800">
-                      {lastGlucoseReading.valueMgDl} {lastGlucoseReading.unit}
-                    </Text>
-                    <Text className="text-xs text-gray-400">
-                      {new Date(lastGlucoseReading.timestamp).toLocaleString(
-                        [],
-                        {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }
-                      )}
-                    </Text>
-                  </View>
-                </View>
+              <View className="flex-row">
                 <Pressable
                   onPress={() => setShowGlucoseModal(true)}
-                  className="bg-primary/10 px-3 py-2 rounded-xl flex-row items-center"
+                  className="mr-2 h-10 w-10 items-center justify-center rounded-2xl bg-gray-100"
                 >
-                  <Plus size={14} color="#1447e6" />
-                  <Text className="text-primary font-medium text-sm ml-1">
-                    Log New
-                  </Text>
+                  <Activity size={18} color="#374151" />
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setSelectedFoods([]);
+                    setVariationSeed((prev) => prev + 1);
+                  }}
+                  className="h-10 w-10 items-center justify-center rounded-2xl bg-primary/10"
+                >
+                  <RefreshCcw size={18} color="#1447e6" />
                 </Pressable>
               </View>
-              {lastGlucoseReading.valueMgDl > 180 && (
-                <View className="mt-3 p-2 bg-amber-50 rounded-lg">
-                  <Text className="text-xs text-amber-700">
-                    ⚠️ Based on your last reading of{" "}
-                    {lastGlucoseReading.valueMgDl} mg/dL, we recommend keeping
-                    carbs below {mealInfo.carbRange.min}g for this meal.
-                  </Text>
-                </View>
-              )}
-            </Animated.View>
-          )}
+            </View>
 
-          {/* No Glucose Reading - Prompt to Log */}
-          {!lastGlucoseReading && (
-            <Pressable
-              onPress={() => setShowGlucoseModal(true)}
-              className="mx-4 mb-4 p-4 rounded-2xl bg-blue-50 border border-blue-100"
-            >
-              <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-xl bg-blue-100 items-center justify-center">
-                  <Activity size={20} color="#1447e6" />
-                </View>
-                <View className="flex-1 ml-3">
-                  <Text className="font-semibold text-gray-800">
-                    Log your glucose reading
+            <View className="mt-4 flex-row flex-wrap gap-3">
+              {constraintItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <CompactMetric
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                    icon={Icon}
+                    color={item.color}
+                  />
+                );
+              })}
+            </View>
+
+            {lastGlucoseReading ? (
+              <View
+                className="mt-4 rounded-2xl border px-3 py-3"
+                style={{
+                  backgroundColor: glucoseTone?.bg || "#f9fafb",
+                  borderColor: glucoseTone?.border || "#e5e7eb",
+                }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text
+                      className="text-xs font-semibold uppercase tracking-[1px]"
+                      style={{ color: glucoseTone?.text || "#374151" }}
+                    >
+                      <T>Last Glucose Reading</T>
+                    </Text>
+                    <Text className="mt-1 text-sm font-semibold text-gray-900">
+                      {lastGlucoseReading.valueMgDl} {lastGlucoseReading.unit}
+                    </Text>
+                    <Text className="mt-1 text-xs leading-5 text-gray-600">
+                      {glucoseTone?.message}
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-gray-500">
+                    {new Date(lastGlucoseReading.timestamp).toLocaleTimeString(
+                      [],
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </Text>
-                  <Text className="text-xs text-gray-600 mt-0.5">
-                    Get personalized recommendations based on your levels
-                  </Text>
                 </View>
-                <Plus size={20} color="#1447e6" />
               </View>
-            </Pressable>
-          )}
+            ) : (
+              <Pressable
+                onPress={() => setShowGlucoseModal(true)}
+                className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3"
+              >
+                <View className="flex-row items-center">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+                    <Activity size={18} color="#1447e6" />
+                  </View>
+                  <View className="ml-3 flex-1">
+                    <Text className="text-sm font-semibold text-gray-900">
+                      <T>Log your glucose reading</T>
+                    </Text>
+                    <Text className="mt-1 text-xs text-gray-600">
+                      <T>Get more accurate meal guidance for this moment</T>
+                    </Text>
+                  </View>
+                  <Plus size={18} color="#1447e6" />
+                </View>
+              </Pressable>
+            )}
+
+            {previousMeal ? (
+              <View className="mt-4 rounded-2xl bg-emerald-50 px-3 py-3">
+                <Text className="text-xs font-semibold uppercase tracking-[1px] text-emerald-700">
+                  <T>Previous Meal Effect</T>
+                </Text>
+                <Text className="mt-1 text-sm leading-6 text-gray-700">
+                  {translatedPreviousMealText ||
+                    `Your last logged ${
+                      previousMeal.mealType
+                    } included about ${Math.round(
+                      previousMeal.calculatedTotals?.carbs || 0
+                    )}g of carbs. This plan shifts the next meal toward a steadier balance.`}
+                </Text>
+              </View>
+            ) : null}
+
+            {recommendationExplanation ? (
+              <View className="mt-4 rounded-2xl bg-gray-50 px-3 py-3">
+                <View className="mb-2 flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <Info size={15} color="#1447e6" />
+                    <Text className="ml-2 text-sm font-semibold text-gray-900">
+                      <T>Recommendation Insight</T>
+                    </Text>
+                  </View>
+                  <Text className="text-[11px] font-medium text-primary">
+                    {recommendationExplanation.source === "groq"
+                      ? t("AI Explained")
+                      : t("Safe Fallback")}
+                  </Text>
+                </View>
+                {isLoadingExplanation ? (
+                  <Text className="text-sm text-gray-500">
+                    <T>Preparing explanation...</T>
+                  </Text>
+                ) : (
+                  <Text className="text-sm leading-6 text-gray-700">
+                    {translatedExplanation ||
+                      recommendationExplanation.explanation}
+                  </Text>
+                )}
+              </View>
+            ) : null}
+          </Animated.View>
 
           {/* Alerts */}
           {recommendation?.alerts.map((alert, idx) => (
@@ -836,13 +1130,38 @@ export default function MealRecommendationScreen() {
                   color: alert.severity === "critical" ? "#dc2626" : "#d97706",
                 }}
               >
-                {alert.message}
+                {translatedAlerts[idx] || alert.message}
               </Text>
             </Animated.View>
           ))}
 
           {/* Food Recommendations */}
           <View className="px-4">
+            <Pressable
+              onPress={() => {
+                setSelectedFoods([]);
+                setVariationSeed((prev) => prev + 1);
+              }}
+              className="mb-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-3 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
+                  <RefreshCcw size={17} color="#4f46e5" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-semibold text-gray-800">
+                    <T>Show a fresh mix</T>
+                  </Text>
+                  <Text className="mt-0.5 text-xs text-gray-600">
+                    <T>
+                      Rotate through other high-quality options for this meal
+                    </T>
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color="#4f46e5" />
+            </Pressable>
+
             {/* Main Dishes */}
             {recommendation && (
               <>
@@ -853,6 +1172,7 @@ export default function MealRecommendationScreen() {
                   onSelectFood={handleSelectFood}
                   icon={Utensils}
                   iconColor="#1447e6"
+                  defaultExpanded
                 />
 
                 <CategorySection
@@ -887,17 +1207,19 @@ export default function MealRecommendationScreen() {
             )}
 
             {/* Tips */}
-            {recommendation?.tips && recommendation.tips.length > 0 && (
+            {compactTips.length > 0 && (
               <Animated.View
                 entering={FadeInUp.delay(300)}
-                className="mt-4 p-4 bg-blue-50 rounded-2xl"
+                className="mt-2 rounded-2xl bg-blue-50 p-4"
               >
                 <View className="flex-row items-center mb-2">
                   <Info size={16} color="#1447e6" />
-                  <Text className="font-semibold text-primary ml-2">Tips</Text>
+                  <Text className="ml-2 font-semibold text-primary">
+                    <T>Tips</T>
+                  </Text>
                 </View>
-                {recommendation.tips.map((tip, idx) => (
-                  <Text key={idx} className="text-sm text-gray-700 mb-1">
+                {compactTips.map((tip, idx) => (
+                  <Text key={idx} className="mb-1 text-sm text-gray-700">
                     • {tip}
                   </Text>
                 ))}
@@ -927,13 +1249,7 @@ export default function MealRecommendationScreen() {
                 {selectedFoods.length !== 1 ? "s" : ""} selected
               </Text>
               <Text className="text-lg font-bold text-gray-800">
-                {Math.round(
-                  selectedFoods.reduce(
-                    (sum, f) => sum + f.suggestedPortion.carbs_g,
-                    0
-                  ) * 10
-                ) / 10}
-                g carbs
+                {selectedCarbs}g carbs
               </Text>
             </View>
 

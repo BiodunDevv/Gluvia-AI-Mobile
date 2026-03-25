@@ -118,7 +118,6 @@ export const useFoodStore = create<FoodState>((set, get) => ({
 
       // Get foods from sync store first
       const syncedFoods = useSyncStore.getState().foods;
-      console.log(`[FOOD-STORE] Synced foods count: ${syncedFoods.length}`);
 
       // If sync store has foods, use them directly
       if (syncedFoods.length > 0) {
@@ -172,7 +171,6 @@ export const useFoodStore = create<FoodState>((set, get) => ({
 
       // If sync store is empty, check cache
       const cachedCount = await getCachedFoodsCount();
-      console.log(`[FOOD-STORE] Cached foods count: ${cachedCount}`);
 
       // If cache has data, use cached data
       if (cachedCount > 0) {
@@ -208,9 +206,6 @@ export const useFoodStore = create<FoodState>((set, get) => ({
       }
 
       // No data available - user needs to sync first
-      console.log(
-        "[FOOD-STORE] No cached data available. User needs to sync first."
-      );
       set({
         foods: [],
         pagination: null,

@@ -1,4 +1,5 @@
 import { Button, Dropdown, FormField } from "@/components/ui";
+import { isProfileComplete } from "@/lib/profile-completion";
 import { useAuthStore, UserProfile } from "@/store/auth-store";
 import { router } from "expo-router";
 import {
@@ -6,7 +7,6 @@ import {
   AlertCircle,
   ArrowLeft,
   DollarSign,
-  Globe,
   Heart,
   Phone,
   Ruler,
@@ -29,6 +29,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const handleBack = () => {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.dismiss();
+  }
+};
 
 const DIABETES_TYPES = [
   { value: "type1", label: "Type 1" },
@@ -55,13 +63,6 @@ const SEX_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-const LANGUAGE_OPTIONS = [
-  { value: "english", label: "English" },
-  { value: "yoruba", label: "Yoruba" },
-  { value: "hausa", label: "Hausa" },
-  { value: "igbo", label: "Igbo" },
-];
-
 export default function EditProfileScreen() {
   const { user, updateProfile, isLoading } = useAuthStore();
 
@@ -79,7 +80,6 @@ export default function EditProfileScreen() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [newAllergy, setNewAllergy] = useState("");
   const [incomeBracket, setIncomeBracket] = useState("");
-  const [language, setLanguage] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -93,7 +93,6 @@ export default function EditProfileScreen() {
       setActivityLevel(user.profile?.activityLevel || "");
       setAllergies(user.profile?.allergies || []);
       setIncomeBracket(user.profile?.incomeBracket || "");
-      setLanguage(user.profile?.language || "");
     }
   }, [user]);
 
@@ -146,14 +145,26 @@ export default function EditProfileScreen() {
       if (allergies.length > 0) profileData.allergies = allergies;
       if (incomeBracket)
         profileData.incomeBracket = incomeBracket as "low" | "middle" | "high";
-      if (language) profileData.language = language;
 
       await updateProfile({
         name: name.trim(),
         phone: phone.trim() || undefined,
         profile: Object.keys(profileData).length > 0 ? profileData : undefined,
       });
-      router.back();
+      const nextUser = {
+        ...user,
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        profile: {
+          ...user?.profile,
+          ...profileData,
+        },
+      };
+      if (isProfileComplete(nextUser as any)) {
+        router.replace("/(tabs)");
+      } else {
+        handleBack();
+      }
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to update profile");
     }
@@ -169,9 +180,9 @@ export default function EditProfileScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1">
             {/* Header */}
-            <View className="px-4 py-4 border-b border-gray-100 flex-row items-center justify-between">
+            <View className="px-4 py-4 border-b border-gray-100 flex-row items-center justify-between bg-white">
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={handleBack}
                 className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
                 activeOpacity={0.7}
               >
@@ -393,16 +404,6 @@ export default function EditProfileScreen() {
                     onChange={setIncomeBracket}
                     placeholder="Select income bracket"
                     icon={<DollarSign size={18} color="#9ca3af" />}
-                  />
-                </FormField>
-
-                <FormField label="Preferred Language">
-                  <Dropdown
-                    options={LANGUAGE_OPTIONS}
-                    value={language}
-                    onChange={setLanguage}
-                    placeholder="Select language"
-                    icon={<Globe size={18} color="#9ca3af" />}
                   />
                 </FormField>
               </View>

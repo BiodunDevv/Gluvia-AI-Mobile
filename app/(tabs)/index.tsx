@@ -1,17 +1,23 @@
 import { LogGlucoseModal } from "@/components/modals";
 import { RecentMealsCard, TodayStatsCard } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
+import { getMissingProfileFields } from "@/lib/profile-completion";
+import { translateDynamicText } from "@/lib/translator";
 import { useAuthStore } from "@/store/auth-store";
+import { useNotificationStore } from "@/store/notification-store";
 import {
   useGlucoseStats,
   useLastGlucoseValue,
   useMealStats,
   useSyncStore,
 } from "@/store/sync-store";
-import { Href, router } from "expo-router";
+import { Href, router, useFocusEffect } from "expo-router";
 import {
   Activity,
   AlertCircle,
   Apple,
+  Bell,
+  Bot,
   Droplets,
   Lightbulb,
   Moon,
@@ -21,6 +27,7 @@ import {
   TrendingDown,
   TrendingUp,
   Utensils,
+  WifiOff,
   Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -43,26 +50,85 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 // Smart Daily Tip Component
 function SmartDailyTip({
+  user,
+  isOffline,
   lastGlucose,
   mealsCount,
+  unreadCount,
   animationDelay = 100,
 }: {
+  user: ReturnType<typeof useAuthStore.getState>["user"];
+  isOffline: boolean;
   lastGlucose?: number;
   mealsCount: number;
+  unreadCount: number;
   animationDelay?: number;
 }) {
+  const { t } = useTranslation();
   const hour = new Date().getHours();
+  const missingFields = getMissingProfileFields(user);
 
   // Generate smart tip based on context
   const getTip = useCallback(() => {
+    if (isOffline) {
+      return {
+        type: "offline" as const,
+        icon: WifiOff,
+        title: t("Offline mode active"),
+        message: t(
+          "You can still review cached foods, past logs, and saved data. Sync when you are back online to refresh recommendations and notifications."
+        ),
+        bgColor: "bg-slate-50",
+        borderColor: "border-slate-200",
+        textColor: "text-slate-800",
+        iconColor: "#475569",
+      };
+    }
+
+    if (missingFields.length > 0) {
+      return {
+        type: "profile" as const,
+        icon: Activity,
+        title: t("Complete your health profile"),
+        message: t(
+          "Add your missing health and lifestyle details so Gluvia can tailor meal guidance, safer suggestions, and more accurate daily insights."
+        ),
+        bgColor: "bg-blue-50",
+        borderColor: "border-blue-200",
+        textColor: "text-blue-800",
+        iconColor: "#2563eb",
+      };
+    }
+
+    if (unreadCount > 0) {
+      return {
+        type: "notification" as const,
+        icon: Bell,
+        title: t("You have new updates"),
+        message:
+          unreadCount === 1
+            ? t(
+                "There is one new notification waiting for you. Open it to stay current with activity, reminders, or admin updates."
+              )
+            : t(
+                "You have unread notifications. Review them to stay current with account, meal, and system updates."
+              ),
+        bgColor: "bg-indigo-50",
+        borderColor: "border-indigo-200",
+        textColor: "text-indigo-800",
+        iconColor: "#4f46e5",
+      };
+    }
+
     // High glucose tips
     if (lastGlucose && lastGlucose > 180) {
       return {
         type: "warning" as const,
-        emoji: "⚠️",
-        title: "High Glucose Alert",
-        message:
-          "Your glucose is quite high. Consider drinking water, taking a 15-minute walk, or checking your medication. If it stays elevated, consult your healthcare provider.",
+        icon: AlertCircle,
+        title: t("High Glucose Alert"),
+        message: t(
+          "Your glucose is quite high. Consider drinking water, taking a 15-minute walk, or checking your medication. If it stays elevated, consult your healthcare provider."
+        ),
         bgColor: "bg-amber-50",
         borderColor: "border-amber-200",
         textColor: "text-amber-800",
@@ -73,10 +139,11 @@ function SmartDailyTip({
     if (lastGlucose && lastGlucose > 140) {
       return {
         type: "elevated" as const,
-        emoji: "📈",
-        title: "Glucose Elevated",
-        message:
-          "Your glucose is elevated. A short 10-15 minute walk can help bring it down naturally. Choose low GI foods for your next meal.",
+        icon: TrendingUp,
+        title: t("Glucose Elevated"),
+        message: t(
+          "Your glucose is elevated. A short 10-15 minute walk can help bring it down naturally. Choose low GI foods for your next meal."
+        ),
         bgColor: "bg-orange-50",
         borderColor: "border-orange-200",
         textColor: "text-orange-800",
@@ -88,10 +155,11 @@ function SmartDailyTip({
     if (lastGlucose && lastGlucose < 70) {
       return {
         type: "low" as const,
-        emoji: "🔴",
-        title: "Low Glucose Alert",
-        message:
-          "Your glucose is low! Have 15-20g of fast-acting carbs like fruit juice, glucose tablets, or 3-4 glucose candies. Recheck in 15 minutes.",
+        icon: TrendingDown,
+        title: t("Low Glucose Alert"),
+        message: t(
+          "Your glucose is low! Have 15-20g of fast-acting carbs like fruit juice, glucose tablets, or 3-4 glucose candies. Recheck in 15 minutes."
+        ),
         bgColor: "bg-red-50",
         borderColor: "border-red-200",
         textColor: "text-red-800",
@@ -103,10 +171,11 @@ function SmartDailyTip({
     if (hour >= 6 && hour < 10 && mealsCount === 0) {
       return {
         type: "meal" as const,
-        emoji: "🌅",
-        title: "Good Morning!",
-        message:
-          "Start your day with a balanced breakfast including protein and fiber to maintain steady glucose levels throughout the morning.",
+        icon: Sun,
+        title: t("Good Morning!"),
+        message: t(
+          "Start your day with a balanced breakfast including protein and fiber to maintain steady glucose levels throughout the morning."
+        ),
         bgColor: "bg-blue-50",
         borderColor: "border-blue-200",
         textColor: "text-blue-800",
@@ -117,10 +186,11 @@ function SmartDailyTip({
     if (hour >= 12 && hour < 14 && mealsCount < 2) {
       return {
         type: "meal" as const,
-        emoji: "☀️",
-        title: "Lunch Time",
-        message:
-          "It's a good time for lunch. Include vegetables and lean protein. Avoid heavy carbs to prevent afternoon energy dips.",
+        icon: Sun,
+        title: t("Lunch Time"),
+        message: t(
+          "It's a good time for lunch. Include vegetables and lean protein. Avoid heavy carbs to prevent afternoon energy dips."
+        ),
         bgColor: "bg-emerald-50",
         borderColor: "border-emerald-200",
         textColor: "text-emerald-800",
@@ -131,10 +201,11 @@ function SmartDailyTip({
     if (hour >= 18 && hour < 20 && mealsCount < 3) {
       return {
         type: "meal" as const,
-        emoji: "🌙",
-        title: "Dinner Time",
-        message:
-          "Keep dinner light and balanced. Eating at least 2-3 hours before bed helps maintain stable overnight glucose levels.",
+        icon: Moon,
+        title: t("Dinner Time"),
+        message: t(
+          "Keep dinner light and balanced. Eating at least 2-3 hours before bed helps maintain stable overnight glucose levels."
+        ),
         bgColor: "bg-purple-50",
         borderColor: "border-purple-200",
         textColor: "text-purple-800",
@@ -146,10 +217,11 @@ function SmartDailyTip({
     if (lastGlucose && lastGlucose >= 70 && lastGlucose <= 100) {
       return {
         type: "success" as const,
-        emoji: "✅",
-        title: "Great Control!",
-        message:
-          "Your glucose is in the normal range. Keep up the good work! Maintain your healthy eating habits and regular activity.",
+        icon: Target,
+        title: t("Great Control!"),
+        message: t(
+          "Your glucose is in the normal range. Keep up the good work! Maintain your healthy eating habits and regular activity."
+        ),
         bgColor: "bg-green-50",
         borderColor: "border-green-200",
         textColor: "text-green-800",
@@ -157,47 +229,52 @@ function SmartDailyTip({
       };
     }
 
-    // Default tips
-    const defaultTips = [
-      {
-        emoji: "💧",
-        title: "Stay Hydrated",
-        message:
-          "Drinking plenty of water helps your kidneys flush out excess glucose. Aim for 8 glasses throughout the day.",
-      },
-      {
-        emoji: "🚶",
-        title: "Move More",
-        message:
-          "Regular physical activity helps your muscles use glucose more efficiently. Even a short walk after meals can help.",
-      },
-      {
-        emoji: "🥗",
-        title: "Fiber is Your Friend",
-        message:
-          "High-fiber foods slow glucose absorption. Include vegetables, legumes, and whole grains in your meals.",
-      },
-      {
-        emoji: "⏰",
-        title: "Timing Matters",
-        message:
-          "Eating meals at consistent times each day helps maintain stable blood sugar levels. Try to space meals 4-5 hours apart.",
-      },
-    ];
+    if (!lastGlucose && mealsCount === 0) {
+      return {
+        type: "starter" as const,
+        icon: Plus,
+        title: t("Build your first health pattern"),
+        message: t(
+          "Start by logging a glucose reading and your next meal. Once Gluvia has both, your dashboard and recommendations become much more useful."
+        ),
+        bgColor: "bg-emerald-50",
+        borderColor: "border-emerald-100",
+        textColor: "text-emerald-800",
+        iconColor: "#10b981",
+      };
+    }
 
-    const randomTip =
-      defaultTips[Math.floor(Math.random() * defaultTips.length)];
+    if (user?.profile?.incomeBracket === "low") {
+      return {
+        type: "budget" as const,
+        icon: Apple,
+        title: t("Budget-friendly planning"),
+        message: t(
+          "Focus on filling, lower-cost staples like beans, vegetables, eggs, and steady-carb portions to keep meals affordable and balanced."
+        ),
+        bgColor: "bg-amber-50",
+        borderColor: "border-amber-100",
+        textColor: "text-amber-800",
+        iconColor: "#d97706",
+      };
+    }
+
     return {
       type: "default" as const,
-      ...randomTip,
+      icon: Lightbulb,
+      title: t("Steady habits win"),
+      message: t(
+        "Keep meals balanced, log readings consistently, and review your recent foods. The most useful diabetes insight comes from stable habits over time."
+      ),
       bgColor: "bg-emerald-50",
       borderColor: "border-emerald-100",
       textColor: "text-emerald-800",
       iconColor: "#10b981",
     };
-  }, [lastGlucose, mealsCount, hour]);
+  }, [hour, isOffline, lastGlucose, mealsCount, missingFields.length, unreadCount, user?.profile?.incomeBracket]);
 
   const tip = useMemo(() => getTip(), [getTip]);
+  const TipIcon = tip.icon;
 
   return (
     <Animated.View
@@ -221,12 +298,17 @@ function SmartDailyTip({
             <Lightbulb size={20} color={tip.iconColor} />
           </View>
           <View className="flex-1">
-            <View className="flex-row items-center mb-1">
+            <View className="mb-1 flex-row items-center">
+              <TipIcon
+                size={16}
+                color={tip.iconColor}
+                style={{ marginRight: 8 }}
+              />
               <Text
-                className="text-base font-semibold mr-2"
+                className="text-base font-semibold"
                 style={{ color: tip.iconColor }}
               >
-                {tip.emoji} {tip.title}
+                {tip.title}
               </Text>
             </View>
             <Text className={`text-sm leading-5 ${tip.textColor}`}>
@@ -240,35 +322,88 @@ function SmartDailyTip({
 }
 
 export default function HomeScreen() {
-  const { user, getProfile, isLoading } = useAuthStore();
+  const { t, language } = useTranslation();
+  const {
+    user,
+    getProfile,
+    isLoading,
+    isOffline,
+    maintenanceMessage,
+    dismissMaintenance,
+  } = useAuthStore();
   const {
     getAggregations,
     isFetchingAggregations,
     lastGlucoseReading,
     mealLogs,
   } = useSyncStore();
+  const { meta, fetchNotifications } = useNotificationStore();
   const lastGlucose = useLastGlucoseValue();
   const glucoseStats = useGlucoseStats();
   const mealStats = useMealStats();
   const [showGlucoseModal, setShowGlucoseModal] = useState(false);
+  const [translatedMaintenanceMessage, setTranslatedMaintenanceMessage] =
+    useState<string | null>(null);
 
-  useEffect(() => {
-    getProfile();
-    // Fetch aggregations for today
+  const loadDashboard = useCallback(async () => {
+    await getProfile();
+    await fetchNotifications();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    getAggregations({
+    await getAggregations({
       from: today.toISOString(),
       to: new Date().toISOString(),
     });
-  }, []);
+  }, [fetchNotifications, getAggregations, getProfile]);
+
+  useEffect(() => {
+    loadDashboard().catch(() => {});
+  }, [loadDashboard]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard().catch(() => {});
+    }, [loadDashboard])
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const translateMaintenance = async () => {
+      if (!maintenanceMessage || isOffline || language === "english") {
+        setTranslatedMaintenanceMessage(null);
+        return;
+      }
+
+      const translated = await translateDynamicText(
+        maintenanceMessage,
+        language
+      );
+
+      if (!cancelled) {
+        setTranslatedMaintenanceMessage(translated);
+      }
+    };
+
+    translateMaintenance().catch(() => {
+      if (!cancelled) {
+        setTranslatedMaintenanceMessage(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOffline, language, maintenanceMessage]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return { text: "Good morning", icon: Sun, color: "#f59e0b" };
+    if (hour < 12)
+      return { text: t("Good morning"), icon: Sun, color: "#f59e0b" };
     if (hour < 18)
-      return { text: "Good afternoon", icon: Sun, color: "#f59e0b" };
-    return { text: "Good evening", icon: Moon, color: "#6366f1" };
+      return { text: t("Good afternoon"), icon: Sun, color: "#f59e0b" };
+    return { text: t("Good evening"), icon: Moon, color: "#6366f1" };
   };
 
   const greeting = getGreeting();
@@ -307,8 +442,8 @@ export default function HomeScreen() {
   const quickActions = [
     {
       id: "log-meal",
-      title: "Log Meal",
-      subtitle: "Track what you eat",
+      title: t("Log Meal"),
+      subtitle: t("Track what you eat"),
       icon: Utensils,
       color: "#10b981",
       bgColor: "bg-emerald-50",
@@ -316,8 +451,8 @@ export default function HomeScreen() {
     },
     {
       id: "log-glucose",
-      title: "Log Glucose",
-      subtitle: "Record your levels",
+      title: t("Log Glucose"),
+      subtitle: t("Record your levels"),
       icon: Droplets,
       color: "#f59e0b",
       bgColor: "bg-amber-50",
@@ -325,21 +460,21 @@ export default function HomeScreen() {
     },
     {
       id: "food-search",
-      title: "Food Search",
-      subtitle: "Find nutrition info",
+      title: t("Food Search"),
+      subtitle: t("Find nutrition info"),
       icon: Apple,
       color: "#ef4444",
       bgColor: "bg-red-50",
       route: "/(tabs)/foods",
     },
     {
-      id: "chat",
-      title: "Ask AI",
-      subtitle: "Get health advice",
-      icon: Zap,
+      id: "ai-chat",
+      title: t("AI Chat"),
+      subtitle: t("Ask about diabetes"),
+      icon: Bot,
       color: "#1447e6",
       bgColor: "bg-blue-50",
-      route: "/(tabs)/chat",
+      route: "/(tabs)/ai-chat",
     },
   ];
 
@@ -359,14 +494,44 @@ export default function HomeScreen() {
     0
   );
 
+  const recentFoods = useMemo(() => {
+    const sortedMeals = [...mealLogs].sort(
+      (left, right) =>
+        new Date(right.timestamp || right.createdAt).getTime() -
+        new Date(left.timestamp || left.createdAt).getTime()
+    );
+    const uniqueFoods = new Map<
+      string,
+      { key: string; name: string; category: string; carbs: number }
+    >();
+
+    for (const meal of sortedMeals) {
+      for (const entry of meal.entries || []) {
+        const foodId = entry.foodId?._id || entry.foodId;
+        const key = String(foodId || entry.portionName || meal._id);
+
+        if (uniqueFoods.has(key)) {
+          continue;
+        }
+
+        uniqueFoods.set(key, {
+          key,
+          name: entry.foodId?.localName || entry.portionName || "Meal item",
+          category: entry.foodId?.category || "Food",
+          carbs: entry.carbs_g || 0,
+        });
+
+        if (uniqueFoods.size >= 6) {
+          return Array.from(uniqueFoods.values());
+        }
+      }
+    }
+
+    return Array.from(uniqueFoods.values());
+  }, [mealLogs]);
+
   const handleRefresh = async () => {
-    await getProfile();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    await getAggregations({
-      from: today.toISOString(),
-      to: new Date().toISOString(),
-    });
+    await loadDashboard();
   };
 
   return (
@@ -383,6 +548,22 @@ export default function HomeScreen() {
           />
         }
       >
+        {maintenanceMessage && (
+          <Animated.View entering={FadeInDown} className="px-6 pt-4">
+            <Pressable
+              onPress={dismissMaintenance}
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <Text className="text-sm font-semibold text-amber-800">
+                <T>Maintenance Mode</T>
+              </Text>
+              <Text className="mt-1 text-sm text-amber-700">
+                {translatedMaintenanceMessage || maintenanceMessage}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
         {/* Header */}
         <Animated.View entering={FadeIn} className="px-6 pt-4 pb-4">
           <View className="flex-row items-center justify-between">
@@ -398,25 +579,47 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.push("/(tabs)/profile" as Href)}
-              activeOpacity={0.7}
-            >
-              <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center">
-                <Image
-                  source={require("@/assets/images/logo.png")}
-                  className="w-8 h-8"
-                  resizeMode="contain"
-                />
-              </View>
-            </TouchableOpacity>
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                onPress={() => router.push("/notifications" as Href)}
+                activeOpacity={0.7}
+                className="mr-3"
+              >
+                <View className="w-12 h-12 rounded-full bg-white items-center justify-center border border-gray-200">
+                  <Bell size={20} color="#374151" />
+                  {(meta?.unreadCount || 0) > 0 && (
+                    <View className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-red-500 items-center justify-center px-1">
+                      <Text className="text-[10px] font-bold text-white">
+                        {meta?.unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/profile" as Href)}
+                activeOpacity={0.7}
+              >
+                <View className="w-12 h-12 rounded-full bg-primary/10 items-center justify-center">
+                  <Image
+                    source={require("@/assets/images/logo.png")}
+                    className="w-8 h-8"
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
         {/* Smart Daily Tip - Right After Header */}
         <SmartDailyTip
+          user={user}
+          isOffline={isOffline}
           lastGlucose={lastGlucoseReading?.valueMgDl}
           mealsCount={todayMeals.length}
+          unreadCount={meta?.unreadCount || 0}
           animationDelay={50}
         />
 
@@ -466,7 +669,7 @@ export default function HomeScreen() {
               <View className="p-5">
                 <View className="flex-row items-center justify-between mb-4">
                   <Text className="text-sm font-medium text-gray-500">
-                    Latest Glucose Reading
+                    <T>Latest Glucose Reading</T>
                   </Text>
                   <View
                     className={`px-2 py-1 rounded-full ${
@@ -511,7 +714,9 @@ export default function HomeScreen() {
                     <Text className="text-lg font-bold text-gray-800">
                       {glucoseStats?.average || "--"}
                     </Text>
-                    <Text className="text-xs text-gray-500">Avg (7d)</Text>
+                    <Text className="text-xs text-gray-500">
+                      <T>Avg (7d)</T>
+                    </Text>
                   </View>
                   <View className="w-px bg-gray-200" />
                   <View className="flex-1 items-center">
@@ -520,14 +725,18 @@ export default function HomeScreen() {
                         ? `${glucoseStats.inRangePercent}%`
                         : "--"}
                     </Text>
-                    <Text className="text-xs text-gray-500">In Range</Text>
+                    <Text className="text-xs text-gray-500">
+                      <T>In Range</T>
+                    </Text>
                   </View>
                   <View className="w-px bg-gray-200" />
                   <View className="flex-1 items-center">
                     <Text className="text-lg font-bold text-gray-800">
                       {glucoseStats?.count || "--"}
                     </Text>
-                    <Text className="text-xs text-gray-500">Readings</Text>
+                    <Text className="text-xs text-gray-500">
+                      <T>Readings</T>
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -538,7 +747,7 @@ export default function HomeScreen() {
               >
                 <Plus size={18} color="#1447e6" />
                 <Text className="text-primary font-semibold ml-2">
-                  Log New Reading
+                  <T>Log New Reading</T>
                 </Text>
               </Pressable>
             </View>
@@ -556,14 +765,16 @@ export default function HomeScreen() {
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
                   <Text className="text-gray-900 text-sm mb-1">
-                    Start Tracking
+                    <T>Start Tracking</T>
                   </Text>
                   <Text className="text-gray-900 text-xl font-bold mb-2">
-                    Log Your First Glucose Reading
+                    <T>Log Your First Glucose Reading</T>
                   </Text>
                   <Text className="text-gray-700 text-sm">
-                    Get personalized insights and meal recommendations based on
-                    your glucose levels
+                    <T>
+                      Get personalized insights and meal recommendations based
+                      on your glucose levels
+                    </T>
                   </Text>
                 </View>
                 <View className="w-14 h-14 rounded-2xl bg-gray-200/20 items-center justify-center ml-4">
@@ -574,7 +785,7 @@ export default function HomeScreen() {
                 <View className="bg-white/20 rounded-full px-4 py-2 flex-row items-center">
                   <Plus size={16} color="gray" />
                   <Text className="text-gray-900 font-semibold ml-1">
-                    Add Reading
+                    <T>Add Reading</T>
                   </Text>
                 </View>
               </View>
@@ -595,7 +806,7 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <Animated.View entering={FadeInUp.delay(300)} className="px-6 mb-6">
           <Text className="text-lg font-semibold text-gray-900 mb-3">
-            Quick Actions
+            <T>Quick Actions</T>
           </Text>
           <View className="flex-row flex-wrap justify-between">
             {quickActions.map((action, index) => (
@@ -641,12 +852,38 @@ export default function HomeScreen() {
           animationDelay={450}
         />
 
+        {recentFoods.length > 0 && (
+          <Animated.View entering={FadeInUp.delay(475)} className="px-6 mb-6">
+            <Text className="text-lg font-semibold text-gray-900 mb-3">
+              <T>Recent Foods</T>
+            </Text>
+            <View className="bg-white rounded-2xl p-4 border border-gray-100">
+              {recentFoods.map((item) => (
+                <View
+                  key={item.key}
+                  className="flex-row items-center justify-between py-3 border-b border-gray-100 last:border-b-0"
+                >
+                  <View className="flex-1 pr-3">
+                    <Text className="text-sm font-semibold text-gray-900">
+                      {item.name}
+                    </Text>
+                    <Text className="text-xs text-gray-500">{item.category}</Text>
+                  </View>
+                  <Text className="text-xs font-medium text-gray-600">
+                    {Math.round(item.carbs * 10) / 10}g <T>carbs</T>
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
         {/* Health Status Card */}
         {user?.profile?.allergies && user.profile.allergies.length > 0 && (
           <Animated.View entering={FadeInUp.delay(500)} className="px-6 mb-6">
             <View className="bg-red-50 rounded-2xl p-5 border border-red-100">
               <Text className="text-sm font-medium text-red-600 mb-2">
-                ⚠️ Known Allergies
+                <T>Known Allergies</T>
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {user.profile.allergies.map((allergy, index) => (

@@ -13,7 +13,6 @@ import {
   Database,
   Download,
   RefreshCw,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   Wifi,
@@ -91,7 +90,7 @@ export function SyncRequiredModal({
     switch (syncReason) {
       case "data-increased":
         return {
-          title: "New Foods Available! 🎉",
+          title: "New Foods Available",
           description: `${dataChange?.count || "New"} new foods have been added to our database.\nSync now to get the latest recommendations.`,
           icon: <TrendingUp size={48} color="#22c55e" />,
         };
@@ -113,7 +112,7 @@ export function SyncRequiredModal({
           title: "Welcome to Gluvia AI",
           description:
             "Let's set up your personalized meal recommendations.\nThis only takes a moment.",
-          icon: <Sparkles size={48} color="#1447e6" />,
+          icon: <Database size={48} color="#1447e6" />,
         };
     }
   }, [isSyncComplete, syncReason, dataChange, foodCount, rulesCount]);
@@ -340,8 +339,8 @@ export function SyncRequiredModal({
               className="mt-4 bg-amber-500/20 px-4 py-3 rounded-lg max-w-md border border-amber-500/30"
             >
               <Text className="text-amber-200 text-xs font-medium leading-5">
-                ⚠️ Note: You won't be able to use Gluvia until you sync the
-                latest data. You can skip for now and sync later.
+                Note: You won't be able to use Gluvia until you sync the latest
+                data. You can skip for now and sync later.
               </Text>
             </Animated.View>
           )}

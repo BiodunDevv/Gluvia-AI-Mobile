@@ -132,6 +132,10 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase) {
       synced INTEGER DEFAULT 0
     );
   `);
+  await database.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_conversations_updated_at
+    ON conversations(updated_at DESC);
+  `);
 
   // Create chat messages table
   await database.execAsync(`
@@ -145,6 +149,10 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase) {
       synced INTEGER DEFAULT 0,
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
+  `);
+  await database.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_created
+    ON chat_messages(conversation_id, created_at ASC);
   `);
 
   // Create offline credentials table for offline login

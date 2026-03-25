@@ -4,14 +4,20 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { Href, Stack, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
 
+import api from "@/lib/api";
+import { isProfileComplete } from "@/lib/profile-completion";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useAuthStore } from "@/store/auth-store";
+import { useNotificationStore } from "@/store/notification-store";
 import { useSyncStore } from "@/store/sync-store";
+import { useTranslationStore } from "@/store/translation-store";
+import * as Notifications from "expo-notifications";
 
 export const unstable_settings = {
   initialRouteName: "index",
@@ -19,6 +25,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const pathname = usePathname();
   const initializeClientVersion = useSyncStore(
     (state) => state.initializeClientVersion
   );
@@ -26,12 +33,27 @@ export default function RootLayout() {
     (state) => state.initializeFromCache
   );
   const setOnlineStatus = useSyncStore((state) => state.setOnlineStatus);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const maintenanceMessage = useAuthStore((state) => state.maintenanceMessage);
+  const setMaintenanceMessage = useAuthStore(
+    (state) => state.setMaintenanceMessage
+  );
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications
+  );
+  const initializeLanguage = useTranslationStore(
+    (state) => state.initializeLanguage
+  );
 
   // Initialize client version, cached data, and network monitoring on app start
   useEffect(() => {
     const initialize = async () => {
       await initializeClientVersion();
       await initializeFromCache();
+      await checkAuth();
+      await initializeLanguage(useAuthStore.getState().user?.profile?.language);
 
       // Get initial network state
       const netState = await NetInfo.fetch();
@@ -39,6 +61,17 @@ export default function RootLayout() {
         (netState.isConnected && netState.isInternetReachable !== false) ??
           false
       );
+
+      try {
+        const response = await api.get("/health");
+        const isMaintenanceEnabled = Boolean(response.data?.maintenanceMode);
+        const message =
+          response.data?.maintenanceMessage ||
+          "Gluvia AI is temporarily unavailable for maintenance.";
+        await setMaintenanceMessage(isMaintenanceEnabled ? message : null);
+      } catch (error) {
+        // Keep any previously stored maintenance message if health cannot be read.
+      }
     };
     initialize();
 
@@ -50,7 +83,89 @@ export default function RootLayout() {
     });
 
     return () => unsubscribe();
-  }, [initializeClientVersion, initializeFromCache, setOnlineStatus]);
+  }, [
+    checkAuth,
+    initializeClientVersion,
+    initializeFromCache,
+    initializeLanguage,
+    setMaintenanceMessage,
+    setOnlineStatus,
+  ]);
+
+  useEffect(() => {
+    initializeLanguage(user?.profile?.language).catch(() => {});
+  }, [initializeLanguage, user?.profile?.language]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    fetchNotifications(undefined, { silent: true }).catch(() => {});
+  }, [fetchNotifications, isAuthenticated]);
+
+  useEffect(() => {
+    const subscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const route =
+          response.notification.request.content.data?.route ||
+          (response.notification.request.content.data?.notificationId
+            ? `/notifications/${response.notification.request.content.data.notificationId}`
+            : "/notifications");
+
+        if (typeof route === "string") {
+          router.push(route as Href);
+          fetchNotifications(undefined, { silent: true, force: true }).catch(
+            () => {}
+          );
+        }
+      });
+
+    return () => subscription.remove();
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const isAuthPath =
+      pathname?.startsWith("/(auth)") ||
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/forgot-password";
+    const isPublicPath =
+      pathname === "/current-user" ||
+      pathname === "/" ||
+      pathname === "/onboarding";
+    const isMaintenancePath = pathname === "/maintenance";
+    const isProfileGatePath =
+      pathname === "/complete-profile" || pathname === "/edit-profile";
+    const profileComplete = isProfileComplete(user);
+
+    if (maintenanceMessage && isAuthenticated && !isAuthPath && !isMaintenancePath) {
+      router.replace("/maintenance" as Href);
+      return;
+    }
+
+    if (!maintenanceMessage && isMaintenancePath) {
+      router.replace(
+        (isAuthenticated
+          ? profileComplete
+            ? "/(tabs)"
+            : "/complete-profile"
+          : "/current-user") as Href
+      );
+      return;
+    }
+
+    if (
+      isAuthenticated &&
+      !maintenanceMessage &&
+      !profileComplete &&
+      !isAuthPath &&
+      !isPublicPath &&
+      !isProfileGatePath
+    ) {
+      router.replace("/complete-profile" as Href);
+    }
+  }, [isAuthenticated, maintenanceMessage, pathname, user]);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -62,6 +177,24 @@ export default function RootLayout() {
         <Stack.Screen name="current-user" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="maintenance" />
+        <Stack.Screen name="complete-profile" />
+        <Stack.Screen name="meal-recommendation" />
+        <Stack.Screen name="meal-history" />
+        <Stack.Screen name="ai-chat/[id]" />
+        <Stack.Screen
+          name="edit-profile"
+          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+        />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen
+          name="notifications/[id]"
+          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+        />
+        <Stack.Screen
+          name="language"
+          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

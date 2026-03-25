@@ -171,10 +171,10 @@ export function FoodDetailModal({
     gi === null
       ? "Glycemic index not available"
       : gi < 55
-        ? "Low GI - Good for blood sugar control ✅"
+        ? "Low GI - Good for blood sugar control"
         : gi < 70
-          ? "Medium GI - Eat in moderation ⚠️"
-          : "High GI - Limit portions and pair with protein ⚠️";
+          ? "Medium GI - Eat in moderation"
+          : "High GI - Limit portions and pair with protein";
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

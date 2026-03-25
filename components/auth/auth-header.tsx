@@ -1,4 +1,6 @@
-import { Href, Link } from "expo-router";
+import { T } from "@/hooks/use-translation";
+import { Href, Link, router } from "expo-router";
+import { Globe2 } from "lucide-react-native";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 
 interface AuthHeaderProps {
@@ -32,22 +34,30 @@ export function AuthHeader({
         <View />
       )}
 
-      {/* Right Button */}
-      {rightButtonText && rightButtonHref ? (
-        <Link href={rightButtonHref as Href} asChild>
-          <TouchableOpacity
-            className="px-4 py-2 rounded-full bg-gray-100"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text className="text-sm font-semibold text-gray-700">
-              {rightButtonText}
-            </Text>
-          </TouchableOpacity>
-        </Link>
-      ) : (
-        <View />
-      )}
+      <View className="flex-row items-center gap-2">
+        <TouchableOpacity
+          className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={() => router.push("/language" as Href)}
+        >
+          <Globe2 size={18} color="#374151" />
+        </TouchableOpacity>
+
+        {rightButtonText && rightButtonHref ? (
+          <Link href={rightButtonHref as Href} asChild>
+            <TouchableOpacity
+              className="px-4 py-2 rounded-full bg-gray-100"
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text className="text-sm font-semibold text-gray-700">
+                <T>{rightButtonText}</T>
+              </Text>
+            </TouchableOpacity>
+          </Link>
+        ) : null}
+      </View>
     </View>
   );
 }

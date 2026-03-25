@@ -108,6 +108,10 @@ export interface UserContext {
   todaysMeals?: { mealType: MealType; carbs: number }[];
 }
 
+export interface RecommendationOptions {
+  variationSeed?: number;
+}
+
 // ============================================================
 // TIME-BASED MEAL DETECTION
 // ============================================================
@@ -134,26 +138,20 @@ export function getTimeContextMessage(mealType: MealType): string {
   const hour = new Date().getHours();
   const messages: Record<MealType, string[]> = {
     breakfast: [
-      "Good morning! Start your day with a balanced breakfast.",
-      "A nutritious breakfast helps maintain stable blood sugar throughout the morning.",
-      "Morning meals are important - choose foods with fiber and protein.",
+      "Start your day right.",
+      "Steady morning fuel.",
+      "Balanced breakfast.",
     ],
     lunch: [
-      "Time for a satisfying midday meal!",
-      "A balanced lunch keeps your energy steady for the afternoon.",
-      "Include vegetables and lean protein for a diabetes-friendly lunch.",
+      "Steady afternoon energy.",
+      "Balanced midday meal.",
+      "Smart lunch choice.",
     ],
-    dinner: [
-      "Good evening! Let's plan a light, nutritious dinner.",
-      "Evening meals should be lighter to support overnight glucose control.",
-      "Aim for vegetables, protein, and controlled carbs for dinner.",
-    ],
+    dinner: ["Light evening meal.", "Balanced dinner.", "Controlled carbs."],
     snack: [
-      hour >= 22 || hour < 5
-        ? "Late night? Choose a light, low-carb snack if needed."
-        : "Time for a healthy snack to maintain energy levels.",
-      "Smart snacking helps prevent blood sugar dips between meals.",
-      "Nuts, vegetables, or protein-rich snacks are great choices.",
+      hour >= 22 || hour < 5 ? "Light late snack." : "Smart snack.",
+      "Quick energy boost.",
+      "Protein-rich snack.",
     ],
   };
 
@@ -177,28 +175,28 @@ export function getMealTypeInfo(mealType: MealType): {
   const info: Record<MealType, ReturnType<typeof getMealTypeInfo>> = {
     breakfast: {
       title: "Breakfast",
-      icon: "☀️",
+      icon: "breakfast",
       description: "Start your day right with a balanced meal",
       carbRange: { min: 30, max: 45 },
       priorities: ["fiber", "protein", "low-gi"],
     },
     lunch: {
       title: "Lunch",
-      icon: "🌤️",
+      icon: "lunch",
       description: "Midday fuel to keep you energized",
       carbRange: { min: 45, max: 60 },
       priorities: ["vegetables", "protein", "whole-grain"],
     },
     dinner: {
       title: "Dinner",
-      icon: "🌙",
+      icon: "dinner",
       description: "A lighter evening meal for better sleep",
       carbRange: { min: 45, max: 60 },
       priorities: ["vegetables", "protein", "low-carb"],
     },
     snack: {
       title: "Snack",
-      icon: "🍎",
+      icon: "snack",
       description: "Smart choices between meals",
       carbRange: { min: 15, max: 20 },
       priorities: ["protein", "nuts", "low-carb"],
@@ -231,7 +229,7 @@ function fillTemplateWithFoodData(
     recommendation?: string;
     explanation?: string;
     mealType?: MealType;
-  }
+  },
 ): string {
   if (!template) return "";
 
@@ -240,27 +238,27 @@ function fillTemplateWithFoodData(
   // Food nutrients - handle both with and without units
   result = result.replace(
     /\{\{food\.fibre_g\}\}g?/gi,
-    `${food.nutrients.fibre_g}g`
+    `${food.nutrients.fibre_g}g`,
   );
   result = result.replace(
     /\{\{food\.carbs_g\}\}g?/gi,
-    `${food.nutrients.carbs_g}g`
+    `${food.nutrients.carbs_g}g`,
   );
   result = result.replace(
     /\{\{food\.protein_g\}\}g?/gi,
-    `${food.nutrients.protein_g}g`
+    `${food.nutrients.protein_g}g`,
   );
   result = result.replace(
     /\{\{food\.fat_g\}\}g?/gi,
-    `${food.nutrients.fat_g}g`
+    `${food.nutrients.fat_g}g`,
   );
   result = result.replace(
     /\{\{food\.calories\}\}/gi,
-    `${food.nutrients.calories}`
+    `${food.nutrients.calories}`,
   );
   result = result.replace(
     /\{\{food\.gi\}\}/gi,
-    `${food.nutrients.gi ?? "N/A"}`
+    `${food.nutrients.gi ?? "N/A"}`,
   );
 
   // Food info
@@ -269,7 +267,7 @@ function fillTemplateWithFoodData(
   result = result.replace(/\{\{food\.category\}\}/gi, food.category || "food");
   result = result.replace(
     /\{\{food\.affordability\}\}/gi,
-    food.affordability || "medium"
+    food.affordability || "medium",
   );
 
   // Calculate carb-fiber ratio
@@ -284,25 +282,25 @@ function fillTemplateWithFoodData(
     if (ruleContext.maxCarbs_g !== undefined) {
       result = result.replace(
         /\{\{maxCarbs_g\}\}/gi,
-        `${ruleContext.maxCarbs_g}g`
+        `${ruleContext.maxCarbs_g}g`,
       );
     }
     if (ruleContext.minProtein_g !== undefined) {
       result = result.replace(
         /\{\{minProtein_g\}\}/gi,
-        `${ruleContext.minProtein_g}g`
+        `${ruleContext.minProtein_g}g`,
       );
     }
     if (ruleContext.minFibre_g !== undefined) {
       result = result.replace(
         /\{\{minFibre_g\}\}/gi,
-        `${ruleContext.minFibre_g}g`
+        `${ruleContext.minFibre_g}g`,
       );
     }
     if (ruleContext.portionMultiplier !== undefined) {
       result = result.replace(
         /\{\{portionMultiplier\}\}/gi,
-        `${ruleContext.portionMultiplier}`
+        `${ruleContext.portionMultiplier}`,
       );
     }
     if (ruleContext.severity) {
@@ -314,7 +312,7 @@ function fillTemplateWithFoodData(
     if (ruleContext.recommendation) {
       result = result.replace(
         /\{\{recommendation\}\}/gi,
-        ruleContext.recommendation
+        ruleContext.recommendation,
       );
     }
     if (ruleContext.explanation) {
@@ -329,25 +327,25 @@ function fillTemplateWithFoodData(
   if (userContext?.profile) {
     result = result.replace(
       /\{\{user\.bmi\}\}/gi,
-      `${userContext.profile.bmi ?? "N/A"}`
+      `${userContext.profile.bmi ?? "N/A"}`,
     );
     result = result.replace(
       /\{\{user\.diabetesType\}\}/gi,
-      userContext.profile.diabetesType || "Type 2"
+      userContext.profile.diabetesType || "Type 2",
     );
     result = result.replace(
       /\{\{user\.weight\}\}/gi,
-      `${userContext.profile.weightKg ?? "N/A"}kg`
+      `${userContext.profile.weightKg ?? "N/A"}kg`,
     );
   }
   if (userContext?.lastGlucose) {
     result = result.replace(
       /\{\{user\.glucose\}\}/gi,
-      `${userContext.lastGlucose}`
+      `${userContext.lastGlucose}`,
     );
     result = result.replace(
       /\{\{user\.lastGlucose\}\}/gi,
-      `${userContext.lastGlucose}`
+      `${userContext.lastGlucose}`,
     );
   }
 
@@ -429,12 +427,19 @@ function calculateBaseScore(food: Food, userContext: UserContext): number {
 
   // User context adjustments
   if (userContext.profile) {
+    const affordability = food.affordability || "medium";
+
     // Affordability preference
-    if (
-      userContext.profile.incomeBracket === "low" &&
-      food.affordability === "low"
-    ) {
-      score += 10;
+    if (userContext.profile.incomeBracket === "low") {
+      if (affordability === "low") score += 18;
+      if (affordability === "medium") score += 6;
+      if (affordability === "high") score -= 18;
+    } else if (userContext.profile.incomeBracket === "middle") {
+      if (affordability === "low") score += 8;
+      if (affordability === "medium") score += 10;
+      if (affordability === "high") score -= 6;
+    } else if (userContext.profile.incomeBracket === "high") {
+      if (affordability === "high") score += 4;
     }
 
     // BMI-based adjustments
@@ -443,6 +448,27 @@ function calculateBaseScore(food: Food, userContext: UserContext): number {
       // For overweight users, prioritize low-calorie, high-fiber foods
       if (food.nutrients.calories < 150) score += 10;
       if (fiber >= 3) score += 5;
+    }
+
+    if (userContext.profile.diabetesType === "prediabetes" && gi <= 55) {
+      score += 8;
+    }
+
+    if (Array.isArray(userContext.profile.allergies)) {
+      const foodText = [
+        food.localName,
+        food.canonicalName,
+        ...(food.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const allergyMatch = userContext.profile.allergies.some((allergy) =>
+        foodText.includes(allergy.toLowerCase()),
+      );
+      if (allergyMatch) {
+        score -= 40;
+      }
     }
   }
 
@@ -455,7 +481,85 @@ function calculateBaseScore(food: Food, userContext: UserContext): number {
     }
   }
 
+  if (userContext.todaysMeals && userContext.todaysMeals.length > 0) {
+    const todayCarbs = userContext.todaysMeals.reduce(
+      (sum, meal) => sum + meal.carbs,
+      0,
+    );
+    if (todayCarbs > 120 && food.nutrients.carbs_g > 20) {
+      score -= 12;
+    }
+    if (
+      userContext.todaysMeals.some((meal) => meal.mealType === "snack") &&
+      (food.tags || []).includes("snack")
+    ) {
+      score -= 4;
+    }
+  }
+
   return Math.max(0, Math.min(100, score));
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function createVariationSeed(
+  userContext: UserContext,
+  mealType: MealType,
+  variationSeed?: number,
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const profileKey = userContext.profile?.diabetesType || "unknown";
+  return hashString(`${today}:${mealType}:${profileKey}:${variationSeed || 0}`);
+}
+
+function getMealSpecificBoost(food: Food, mealType: MealType): number {
+  const tags = new Set((food.tags || []).map((tag) => tag.toLowerCase()));
+  const category = (food.category || "").toLowerCase();
+
+  if (mealType === "breakfast") {
+    if (tags.has("breakfast") || tags.has("oats") || tags.has("egg")) return 10;
+    if (category.includes("beverages")) return -4;
+  }
+
+  if (mealType === "lunch" || mealType === "dinner") {
+    if (category.includes("protein")) return 6;
+    if (category.includes("soups") || category.includes("vegetables")) return 8;
+  }
+
+  if (mealType === "snack") {
+    if (category.includes("snacks") || tags.has("nuts") || tags.has("fruit")) {
+      return 10;
+    }
+    if (category.includes("grains")) return -8;
+  }
+
+  return 0;
+}
+
+function selectDiverseRecommendations(
+  foods: RecommendedFood[],
+  limit: number,
+  seed: number,
+): RecommendedFood[] {
+  const pool = foods.slice(0, Math.min(Math.max(limit * 3, 8), foods.length));
+
+  return pool
+    .map((food) => {
+      const jitter = (hashString(`${food._id}:${seed}`) % 1000) / 1000;
+      return {
+        food,
+        rankScore: food.score + jitter * 6,
+      };
+    })
+    .sort((a, b) => b.rankScore - a.rankScore)
+    .slice(0, limit)
+    .map((entry) => entry.food);
 }
 
 /**
@@ -465,7 +569,7 @@ function applyRules(
   food: Food,
   rules: RuleTemplate[],
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
 ): { scoreAdjustment: number; alerts: Alert[]; reasons: string[] } {
   let scoreAdjustment = 0;
   const alerts: Alert[] = [];
@@ -492,7 +596,7 @@ function applyRules(
           food,
           rule,
           userContext,
-          mealType
+          mealType,
         );
         scoreAdjustment += scoringResult.scoreBonus;
         if (scoringResult.reason) reasons.push(scoringResult.reason);
@@ -503,7 +607,7 @@ function applyRules(
           food,
           rule,
           userContext,
-          mealType
+          mealType,
         );
         if (alertResult) alerts.push(alertResult);
         break;
@@ -513,7 +617,7 @@ function applyRules(
           food,
           rule,
           userContext,
-          mealType
+          mealType,
         );
         if (constraintAlert) alerts.push(constraintAlert);
         break;
@@ -538,7 +642,7 @@ function evaluateScoringRule(
   food: Food,
   rule: RuleTemplate,
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
 ): { scoreBonus: number; reason: string | null } {
   const definition = rule.definition;
   const logic = definition.logic || [];
@@ -555,7 +659,7 @@ function evaluateScoringRule(
               rule.nlTemplate,
               food,
               userContext,
-              ruleContext
+              ruleContext,
             )
           : null;
       return {
@@ -569,7 +673,7 @@ function evaluateScoringRule(
       condition.when,
       food,
       userContext,
-      mealType
+      mealType,
     );
     if (matches) {
       const ruleContext = {
@@ -582,7 +686,7 @@ function evaluateScoringRule(
               rule.nlTemplate,
               food,
               userContext,
-              ruleContext
+              ruleContext,
             )
           : null;
       return {
@@ -602,7 +706,7 @@ function evaluateAlertRule(
   food: Food,
   rule: RuleTemplate,
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
 ): Alert | null {
   const definition = rule.definition;
   const logic = definition.logic || [];
@@ -620,7 +724,7 @@ function evaluateAlertRule(
       condition.when,
       food,
       userContext,
-      mealType
+      mealType,
     );
     if (matches && condition.then?.alert) {
       const ruleContext = {
@@ -634,7 +738,7 @@ function evaluateAlertRule(
             rule.nlTemplate,
             food,
             userContext,
-            ruleContext
+            ruleContext,
           )
         : rule.title;
       return {
@@ -655,7 +759,7 @@ function evaluateConstraintRule(
   food: Food,
   rule: RuleTemplate,
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
 ): Alert | null {
   const definition = rule.definition;
   const logic = definition.logic || [];
@@ -665,7 +769,7 @@ function evaluateConstraintRule(
       condition.when,
       food,
       userContext,
-      mealType
+      mealType,
     );
 
     if (matches && condition.then?.maxCarbs_g) {
@@ -686,7 +790,7 @@ function evaluateConstraintRule(
               rule.nlTemplate,
               food,
               userContext,
-              ruleContext
+              ruleContext,
             )
           : `This food may exceed your recommended carb limit of ${condition.then.maxCarbs_g}g per meal.`;
         return {
@@ -708,7 +812,7 @@ function evaluateCondition(
   condition: string,
   food: Food,
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
 ): boolean {
   try {
     // Handle common conditions
@@ -777,7 +881,7 @@ function getSuggestedPortion(
   food: Food,
   userContext: UserContext,
   mealType: MealType,
-  rules: RuleTemplate[]
+  rules: RuleTemplate[],
 ): { name: string; grams: number; carbs_g: number } {
   // Default to smallest portion for diabetes management
   const portions = food.portionSizes;
@@ -840,10 +944,16 @@ export function generateMealRecommendation(
   foods: Food[],
   rules: RuleTemplate[],
   userContext: UserContext,
-  mealType: MealType
+  mealType: MealType,
+  options: RecommendationOptions = {},
 ): MealRecommendation {
   const mealInfo = getMealTypeInfo(mealType);
   const timeContext = getTimeContextMessage(mealType);
+  const variationSeed = createVariationSeed(
+    userContext,
+    mealType,
+    options.variationSeed,
+  );
 
   // Calculate max carbs allowed based on user context and rules
   let maxCarbs = mealInfo.carbRange.max;
@@ -858,6 +968,17 @@ export function generateMealRecommendation(
   if (profile?.bmi && profile.bmi >= 30) {
     maxCarbs = Math.min(maxCarbs, 35);
   }
+  if (userContext.todaysMeals && userContext.todaysMeals.length > 0) {
+    const consumedCarbs = userContext.todaysMeals.reduce(
+      (sum, meal) => sum + meal.carbs,
+      0,
+    );
+    if (consumedCarbs > 140) {
+      maxCarbs = Math.max(20, maxCarbs - 10);
+    } else if (consumedCarbs > 90) {
+      maxCarbs = Math.max(25, maxCarbs - 5);
+    }
+  }
 
   // Score and categorize all foods
   const scoredFoods: RecommendedFood[] = foods
@@ -868,13 +989,13 @@ export function generateMealRecommendation(
         food,
         rules,
         userContext,
-        mealType
+        mealType,
       );
       const suggestedPortion = getSuggestedPortion(
         food,
         userContext,
         mealType,
-        rules
+        rules,
       );
 
       // Generate reasons based on food properties
@@ -894,7 +1015,13 @@ export function generateMealRecommendation(
 
       return {
         ...food,
-        score: Math.max(0, Math.min(100, baseScore + scoreAdjustment)),
+        score: Math.max(
+          0,
+          Math.min(
+            100,
+            baseScore + scoreAdjustment + getMealSpecificBoost(food, mealType),
+          ),
+        ),
         reasons: finalReasons.slice(0, 3), // Max 3 reasons
         alerts,
         suggestedPortion,
@@ -910,21 +1037,43 @@ export function generateMealRecommendation(
     snacks: ["Snacks", "Beverages", "Dairy"],
   };
 
-  const mainDishes = scoredFoods
-    .filter((f) => categories.mainDishes.includes(f.category || ""))
-    .slice(0, 5);
+  const safeFoods = scoredFoods.filter(
+    (food) => !food.alerts.some((alert) => alert.severity === "critical"),
+  );
 
-  const sideDishes = scoredFoods
-    .filter((f) => categories.sideDishes.includes(f.category || ""))
-    .slice(0, 5);
+  const mainDishes = selectDiverseRecommendations(
+    safeFoods.filter((f) => categories.mainDishes.includes(f.category || "")),
+    5,
+    variationSeed,
+  );
 
-  const proteins = scoredFoods
-    .filter((f) => categories.proteins.includes(f.category || ""))
-    .slice(0, 5);
+  const sideDishes = selectDiverseRecommendations(
+    safeFoods.filter((f) => categories.sideDishes.includes(f.category || "")),
+    5,
+    variationSeed + 17,
+  );
 
-  const snacks = scoredFoods
-    .filter((f) => categories.snacks.includes(f.category || ""))
-    .slice(0, 5);
+  const proteins = selectDiverseRecommendations(
+    safeFoods.filter((f) => categories.proteins.includes(f.category || "")),
+    5,
+    variationSeed + 31,
+  );
+
+  const snacks = selectDiverseRecommendations(
+    safeFoods.filter((f) => categories.snacks.includes(f.category || "")),
+    5,
+    variationSeed + 53,
+  );
+
+  if (mainDishes.length === 0 && scoredFoods.length > 0) {
+    mainDishes.push(
+      ...selectDiverseRecommendations(
+        safeFoods.length > 0 ? safeFoods : scoredFoods,
+        Math.min(5, scoredFoods.length),
+        variationSeed + 71,
+      ),
+    );
+  }
 
   // Generate overall alerts
   const overallAlerts: Alert[] = [];
@@ -972,7 +1121,7 @@ export function generateMealRecommendation(
         acc.fibre_g +
         (food.nutrients.fibre_g * food.suggestedPortion.grams) / 100,
     }),
-    { calories: 0, carbs_g: 0, protein_g: 0, fat_g: 0, fibre_g: 0 }
+    { calories: 0, carbs_g: 0, protein_g: 0, fat_g: 0, fibre_g: 0 },
   );
 
   return {
@@ -1000,7 +1149,7 @@ export function generateMealRecommendation(
  */
 function generateMealTips(
   mealType: MealType,
-  userContext: UserContext
+  userContext: UserContext,
 ): string[] {
   const tips: string[] = [];
   const profile = userContext.profile;
@@ -1009,7 +1158,7 @@ function generateMealTips(
   switch (mealType) {
     case "breakfast":
       tips.push(
-        "Include protein with breakfast to maintain stable blood sugar."
+        "Include protein with breakfast to maintain stable blood sugar.",
       );
       tips.push("Avoid sugary cereals and fruit juices.");
       break;
@@ -1036,6 +1185,18 @@ function generateMealTips(
     tips.push("Your active lifestyle may allow slightly larger portions.");
   }
 
+  if (profile?.incomeBracket === "low") {
+    tips.push(
+      "Focus on affordable staples with protein and fiber, such as beans, eggs, and vegetable-based soups.",
+    );
+  }
+
+  if (profile?.allergies && profile.allergies.length > 0) {
+    tips.push(
+      `Avoid known triggers: ${profile.allergies.slice(0, 2).join(", ")}.`,
+    );
+  }
+
   if (userContext.lastGlucose && userContext.lastGlucose > 150) {
     tips.push("Consider checking glucose 2 hours after eating.");
   }
@@ -1052,7 +1213,7 @@ export function getRecommendedFoodsForCategory(
   userContext: UserContext,
   mealType: MealType,
   category: string,
-  limit: number = 10
+  limit: number = 10,
 ): RecommendedFood[] {
   return foods
     .filter((f) => !f.deleted && f.category === category)
@@ -1062,13 +1223,13 @@ export function getRecommendedFoodsForCategory(
         food,
         rules,
         userContext,
-        mealType
+        mealType,
       );
       const suggestedPortion = getSuggestedPortion(
         food,
         userContext,
         mealType,
-        rules
+        rules,
       );
 
       return {
@@ -1091,7 +1252,7 @@ export function searchAndScoreFoods(
   rules: RuleTemplate[],
   userContext: UserContext,
   mealType: MealType,
-  query: string
+  query: string,
 ): RecommendedFood[] {
   const lowerQuery = query.toLowerCase();
 
@@ -1101,7 +1262,7 @@ export function searchAndScoreFoods(
         !f.deleted &&
         (f.localName.toLowerCase().includes(lowerQuery) ||
           f.canonicalName?.toLowerCase().includes(lowerQuery) ||
-          f.tags?.some((t) => t.toLowerCase().includes(lowerQuery)))
+          f.tags?.some((t) => t.toLowerCase().includes(lowerQuery))),
     )
     .map((food) => {
       const baseScore = calculateBaseScore(food, userContext);
@@ -1109,13 +1270,13 @@ export function searchAndScoreFoods(
         food,
         rules,
         userContext,
-        mealType
+        mealType,
       );
       const suggestedPortion = getSuggestedPortion(
         food,
         userContext,
         mealType,
-        rules
+        rules,
       );
 
       return {

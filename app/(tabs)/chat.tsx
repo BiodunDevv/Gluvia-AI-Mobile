@@ -5,7 +5,7 @@
  * meal type selection, and quick access to food recommendations.
  */
 
-import { TodayStatsCard } from "@/components/ui";
+import { AppScreenHeader, TodayStatsCard } from "@/components/ui";
 import {
   getCurrentMealType,
   getMealTypeInfo,
@@ -22,7 +22,6 @@ import { useAuthStore } from "@/store/auth-store";
 import { useFoodStore } from "@/store/food-store";
 import { useRuleStore } from "@/store/rule-store";
 import { useSyncStore } from "@/store/sync-store";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import {
@@ -36,8 +35,8 @@ import {
   Download,
   History,
   Leaf,
+  Lightbulb,
   Moon,
-  Sparkles,
   Sun,
   Zap,
 } from "lucide-react-native";
@@ -120,25 +119,19 @@ function MealTypeCard({
         }
       }}
       disabled={disabled}
-      className={`bg-white rounded-2xl p-4 mb-3 border border-gray-100 ${disabled ? "opacity-50" : ""}`}
-      style={{
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      }}
+      className={`mb-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 ${disabled ? "opacity-50" : ""}`}
     >
       <View className="flex-row items-center">
         <View
-          className="w-14 h-14 rounded-xl items-center justify-center"
+          className="h-12 w-12 items-center justify-center rounded-xl"
           style={{ backgroundColor: config.color + "20" }}
         >
-          <Icon size={28} color={config.color} />
+          <Icon size={22} color={config.color} />
         </View>
 
         <View className="flex-1 ml-4">
           <View className="flex-row items-center">
-            <Text className="text-lg font-bold text-gray-800">
+            <Text className="text-base font-bold text-gray-800">
               {info.title}
             </Text>
             {isRecommended && (
@@ -150,13 +143,13 @@ function MealTypeCard({
               </View>
             )}
           </View>
-          <Text className="text-sm text-gray-500 mt-0.5">
+          <Text className="mt-0.5 text-xs text-gray-500">
             {config.description}
           </Text>
           <View className="flex-row items-center mt-2">
             <Zap size={12} color="#f59e0b" />
-            <Text className="text-xs text-gray-500 ml-1">
-              {info.carbRange.min}-{info.carbRange.max}g carbs recommended
+            <Text className="ml-1 text-xs text-gray-500">
+              {info.carbRange.min}-{info.carbRange.max}g target
             </Text>
           </View>
         </View>
@@ -178,9 +171,9 @@ function RecentMealItem({ meal }: { meal: MealHistoryEntry }) {
   });
 
   return (
-    <View className="flex-row items-center py-3 border-b border-gray-100">
+    <View className="flex-row items-center border-b border-gray-100 py-3">
       <View
-        className="w-10 h-10 rounded-xl items-center justify-center"
+        className="h-10 w-10 items-center justify-center rounded-xl"
         style={{ backgroundColor: config.color + "15" }}
       >
         <Icon size={18} color={config.color} />
@@ -214,40 +207,40 @@ function SyncRequiredSection({
   return (
     <Animated.View
       entering={FadeInDown.delay(200)}
-      className="mx-6 mt-4 bg-primary rounded-3xl p-6 overflow-hidden"
+      className="mx-4 mt-4 overflow-hidden rounded-3xl bg-primary p-5"
     >
       {/* Background Pattern */}
       <View className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
       <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-8 -mb-8" />
 
       {/* Icon */}
-      <View className="items-center mb-4">
-        <View className="w-20 h-20 rounded-full bg-white/20 items-center justify-center">
-          <View className="w-16 h-16 rounded-full bg-white items-center justify-center">
+      <View className="mb-4 items-center">
+        <View className="h-16 w-16 items-center justify-center rounded-full bg-white/20">
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-white">
             {isSyncComplete ? (
               <Animated.View entering={ZoomIn}>
-                <CheckCircle size={32} color="#22c55e" />
+                <CheckCircle size={24} color="#22c55e" />
               </Animated.View>
             ) : (
-              <Sparkles size={32} color="#1447e6" />
+              <Database size={24} color="#1447e6" />
             )}
           </View>
         </View>
       </View>
 
       {/* Title & Description */}
-      <Text className="text-2xl font-bold text-white text-center mb-2">
+      <Text className="mb-2 text-center text-xl font-bold text-white">
         {isSyncComplete ? "You're All Set!" : "Welcome to Gluvia AI"}
       </Text>
-      <Text className="text-white/80 text-center mb-6 leading-5">
+      <Text className="mb-5 text-center leading-5 text-white/80">
         {isSyncComplete
           ? "Your data is ready. You can now get personalized meal recommendations."
           : "Download our Nigerian food database and smart rules for personalized meal recommendations."}
       </Text>
 
       {/* Features */}
-      <View className="bg-white/10 rounded-2xl p-4 mb-6">
-        <View className="flex-row items-center mb-3">
+      <View className="mb-5 rounded-2xl bg-white/10 p-4">
+        <View className="mb-3 flex-row items-center">
           <View
             className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${syncProgress.foods ? "bg-green-500/30" : "bg-white/20"}`}
           >
@@ -293,7 +286,7 @@ function SyncRequiredSection({
         <Pressable
           onPress={onSync}
           disabled={isSyncing}
-          className={`py-4 rounded-2xl items-center justify-center flex-row ${
+          className={`flex-row items-center justify-center rounded-2xl py-3.5 ${
             isSyncing ? "bg-white/50" : "bg-white"
           }`}
         >
@@ -541,46 +534,54 @@ export default function MealRecommendationHub() {
         }
       >
         {/* Header */}
-        <View className="px-6 pt-4 pb-2">
-          <View className="flex-row items-center justify-between mb-2">
-            <View className="flex-1">
-              <View className="flex-row items-center">
-                <Sparkles size={16} color="#1447e6" />
-                <Text className="text-sm text-primary font-medium ml-1.5">
-                  Gluvia AI
-                </Text>
-              </View>
-              <Text className="text-2xl font-bold text-gray-800 mt-1">
-                Meal Recommendations
-              </Text>
-            </View>
+        <View>
+          <AppScreenHeader
+            title="Meals"
+            rightSlot={
+              isDataSynced ? (
+                <Pressable
+                  onPress={checkForUpdates}
+                  disabled={isUpdating}
+                  className="flex-row items-center rounded-xl bg-primary/10 px-3 py-2"
+                >
+                  {isUpdating ? (
+                    <ActivityIndicator color="#1447e6" size="small" />
+                  ) : (
+                    <ArrowDownCircle size={16} color="#1447e6" />
+                  )}
+                  <Text className="text-primary text-xs font-medium ml-1.5">
+                    {isUpdating ? "Updating..." : "Update"}
+                  </Text>
+                </Pressable>
+              ) : null
+            }
+          />
 
-            {/* Update Button - Only show if data is synced */}
-            {isDataSynced && (
-              <Pressable
-                onPress={checkForUpdates}
-                disabled={isUpdating}
-                className="flex-row items-center px-3 py-2 bg-primary/10 rounded-xl"
-              >
-                {isUpdating ? (
-                  <ActivityIndicator color="#1447e6" size="small" />
-                ) : (
-                  <ArrowDownCircle size={16} color="#1447e6" />
-                )}
-                <Text className="text-primary text-xs font-medium ml-1.5">
-                  {isUpdating ? "Updating..." : "Update"}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Greeting Banner - Only when synced */}
           {isDataSynced && (
             <Animated.View
               entering={FadeIn}
-              className="bg-gradient-to-r from-primary/10 to-blue-50 rounded-2xl py-2 mt-2"
+              className="mx-4 rounded-2xl border border-gray-100 bg-white p-4"
             >
-              <Text className="text-gray-700 leading-6">{greeting}</Text>
+              <Text className="text-sm font-semibold text-gray-900">
+                {greeting}
+              </Text>
+              <View className="mt-3 flex-row flex-wrap">
+                <View className="mb-2 mr-2 rounded-full bg-primary/10 px-3 py-1.5">
+                  <Text className="text-xs font-medium text-primary">
+                    {todaysTotals.meals} meals today
+                  </Text>
+                </View>
+                <View className="mb-2 mr-2 rounded-full bg-green-50 px-3 py-1.5">
+                  <Text className="text-xs font-medium text-green-700">
+                    {totalFoodsCount} foods ready
+                  </Text>
+                </View>
+                <View className="mb-2 rounded-full bg-amber-50 px-3 py-1.5">
+                  <Text className="text-xs font-medium text-amber-700">
+                    {Math.round(todaysTotals.carbs)}g carbs today
+                  </Text>
+                </View>
+              </View>
             </Animated.View>
           )}
         </View>
@@ -616,14 +617,14 @@ export default function MealRecommendationHub() {
             />
 
             {/* Meal Type Selection */}
-            <View className="px-6 mt-2">
-              <View className="flex-row items-center justify-between mb-4">
+            <View className="mt-2 px-4">
+              <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-lg font-bold text-gray-800">
                   Get Recommendations
                 </Text>
-                <View className="flex-row items-center bg-green-50 px-3 py-1.5 rounded-full">
+                <View className="flex-row items-center rounded-full bg-green-50 px-3 py-1.5">
                   <Leaf size={14} color="#22c55e" />
-                  <Text className="text-xs text-green-700 font-medium ml-1.5">
+                  <Text className="ml-1.5 text-xs font-medium text-green-700">
                     {totalFoodsCount} foods synced
                   </Text>
                 </View>
@@ -651,11 +652,11 @@ export default function MealRecommendationHub() {
 
             {/* Recent Meals */}
             {todaysMeals.length > 0 && (
-              <View className="px-6 mt-6">
-                <View className="flex-row items-center justify-between mb-3">
+              <View className="mt-5 px-4">
+                <View className="mb-3 flex-row items-center justify-between">
                   <View className="flex-row items-center">
                     <History size={18} color="#6b7280" />
-                    <Text className="text-lg font-bold text-gray-800 ml-2">
+                    <Text className="ml-2 text-lg font-bold text-gray-800">
                       Today's Meals
                     </Text>
                   </View>
@@ -664,7 +665,7 @@ export default function MealRecommendationHub() {
                   </Text>
                 </View>
 
-                <View className="bg-white rounded-2xl p-4">
+                <View className="rounded-2xl bg-white p-4">
                   {todaysMeals.slice(0, 5).map((meal) => (
                     <RecentMealItem key={meal.id} meal={meal} />
                   ))}
@@ -672,34 +673,30 @@ export default function MealRecommendationHub() {
               </View>
             )}
 
-            {/* Quick Tips */}
-            <View className="px-6 mt-6">
+            <View className="mt-5 px-4">
               <Animated.View
                 entering={FadeInUp.delay(400)}
-                className="bg-blue-50 rounded-2xl p-4"
+                className="rounded-2xl bg-blue-50 p-4"
               >
-                <View className="flex-row items-center mb-2">
-                  <Ionicons name="bulb" size={18} color="#1447e6" />
-                  <Text className="font-semibold text-primary ml-2">
-                    Quick Tips
-                  </Text>
+                <View className="mb-2 flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <Lightbulb size={18} color="#1447e6" />
+                    <Text className="ml-2 font-semibold text-primary">
+                      Quick Tips
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center rounded-full bg-green-100 px-2.5 py-1">
+                    <CheckCircle size={14} color="#15803d" />
+                    <Text className="ml-1.5 text-xs font-medium text-green-700">
+                      Offline ready
+                    </Text>
+                  </View>
                 </View>
-                <Text className="text-sm text-gray-700 leading-5">
-                  • Aim for 3 balanced meals with 1-2 small snacks{"\n"}•
-                  Include protein with each meal for stable blood sugar{"\n"}•
-                  Choose low GI foods to avoid spikes
+                <Text className="text-sm leading-6 text-gray-700">
+                  Keep portions steady, pair carbs with protein, and use the
+                  meal cards above to log the next best option quickly.
                 </Text>
               </Animated.View>
-            </View>
-
-            {/* Offline Status */}
-            <View className="px-6 mt-6">
-              <View className="flex-row items-center justify-center py-3 bg-green-50 rounded-xl">
-                <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                <Text className="text-green-700 text-sm ml-2">
-                  Ready for offline use • {totalFoodsCount} foods cached
-                </Text>
-              </View>
             </View>
           </>
         )}

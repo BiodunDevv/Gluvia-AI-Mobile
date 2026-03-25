@@ -33,6 +33,14 @@ import {
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const handleBack = () => {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.dismiss();
+  }
+};
+
 // Meal type configuration
 const MEAL_ICONS = {
   breakfast: { icon: Coffee, color: "#f59e0b", bgColor: "#fef3c7" },
@@ -262,7 +270,7 @@ export default function MealHistoryScreen() {
       <View className="px-4 py-3 bg-white border-b border-gray-100">
         <View className="flex-row items-center">
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
           >
             <ArrowLeft size={20} color="#374151" />

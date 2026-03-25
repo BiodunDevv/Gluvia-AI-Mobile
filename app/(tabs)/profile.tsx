@@ -1,9 +1,19 @@
 ﻿import { AllergiesSection, ProfileHeader } from "@/components/profile";
-import { Button, InfoRow, SectionCard, SectionHeader } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { InfoRow } from "@/components/ui/info-row";
+import { SectionCard, SectionHeader } from "@/components/ui/section";
+import { T, useTranslation } from "@/hooks/use-translation";
+import {
+  getMissingProfileFields,
+  isProfileComplete,
+} from "@/lib/profile-completion";
+import { useAppSettingsStore } from "@/store/app-settings-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useSyncStore } from "@/store/sync-store";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { Href, router } from "expo-router";
 import {
   Activity,
@@ -12,6 +22,7 @@ import {
   CloudOff,
   DollarSign,
   Download,
+  ExternalLink,
   Globe,
   Heart,
   LogOut,
@@ -19,8 +30,6 @@ import {
   Phone,
   Ruler,
   Scale,
-  User as UserIcon,
-  Users,
   Wifi,
   WifiOff,
 } from "lucide-react-native";
@@ -37,6 +46,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import type { LucideIcon } from "lucide-react-native";
 
 const DIABETES_TYPES = [
   { value: "type1", label: "Type 1" },
@@ -63,9 +73,41 @@ const SEX_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+function CompactInfoCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View className="min-w-[47%] flex-1 rounded-2xl border border-gray-100 bg-white px-4 py-4">
+      <View className="mb-3 h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
+        <Icon size={18} color="#1447e6" />
+      </View>
+      <Text className="text-xs font-medium uppercase tracking-wide text-gray-400">
+        {label}
+      </Text>
+      <Text className="mt-1 text-sm font-semibold leading-6 text-gray-900">
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
-  const { user, getProfile, logout, deleteAccount, uploadPhoto, isLoading } =
-    useAuthStore();
+  const {
+    user,
+    getProfile,
+    logout,
+    deleteAccount,
+    uploadPhoto,
+    isLoading,
+  } = useAuthStore();
+  const { settings: appSettings, fetchSettings } = useAppSettingsStore();
+  const { language, languages, t } = useTranslation();
   const {
     clientVersion,
     serverVersion,
@@ -88,6 +130,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       getProfile().catch(() => {});
+      fetchSettings().catch(() => {});
     }, [])
   );
 
@@ -115,6 +158,10 @@ export default function ProfileScreen() {
 
   const handleEditProfile = () => {
     router.push("/edit-profile" as Href);
+  };
+
+  const handleChangeLanguage = async () => {
+    router.push("/language" as Href);
   };
 
   const handlePhotoUpload = async () => {
@@ -236,6 +283,56 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleOpenSupportForm = async () => {
+    const link = appSettings?.googleFormLink?.trim();
+
+    if (!link) {
+      Alert.alert(
+        "Form unavailable",
+        "The admin has not configured a Google Form link yet."
+      );
+      return;
+    }
+
+    if (!isOnline) {
+      Alert.alert(
+        "Internet Required",
+        "You need an internet connection to open the form."
+      );
+      return;
+    }
+
+    try {
+      await WebBrowser.openBrowserAsync(link, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+      });
+    } catch {
+      await Linking.openURL(link);
+    }
+  };
+
+  const handleCallSupport = async () => {
+    const phone = appSettings?.supportPhone?.trim();
+
+    if (!phone) {
+      Alert.alert(
+        "Phone unavailable",
+        "The admin has not configured a support phone number yet."
+      );
+      return;
+    }
+
+    const telUrl = `tel:${phone.replace(/\s+/g, "")}`;
+    const canOpen = await Linking.canOpenURL(telUrl);
+
+    if (!canOpen) {
+      Alert.alert("Call unavailable", "This device cannot place calls.");
+      return;
+    }
+
+    await Linking.openURL(telUrl);
+  };
+
   const handleForceSync = async () => {
     if (!isOnline) {
       Alert.alert(
@@ -338,7 +435,7 @@ export default function ProfileScreen() {
   };
 
   const formatSyncDate = (dateString?: string | null) => {
-    if (!dateString) return "Never";
+    if (!dateString) return t("Never");
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -349,7 +446,7 @@ export default function ProfileScreen() {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return t("N/A");
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "long",
       year: "numeric",
@@ -360,9 +457,12 @@ export default function ProfileScreen() {
     options: { value: string; label: string }[],
     value?: string
   ) => {
-    if (!value) return "Not set";
-    return options.find((opt) => opt.value === value)?.label || value;
+    if (!value) return t("Not set");
+    return t(options.find((opt) => opt.value === value)?.label || value);
   };
+
+  const missingFields = getMissingProfileFields(user);
+  const profileReady = isProfileComplete(user);
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
@@ -379,119 +479,179 @@ export default function ProfileScreen() {
           />
         }
       >
-        {/* Profile Header */}
-        <View className="px-6 pt-6">
+        <View className="px-4 pt-5">
           <ProfileHeader
             user={user}
             showEditButton
             onPhotoPress={handlePhotoUpload}
           />
 
-          {/* Edit Profile Button */}
-          <Button onPress={handleEditProfile} className="mb-6">
-            Edit Profile
-          </Button>
+          <View className="mb-4 flex-row gap-3">
+            <Button onPress={handleEditProfile} className="flex-1">
+              {profileReady ? t("Edit Profile") : t("Complete Profile")}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onPress={handleChangeLanguage}
+            >
+              <T>Language</T>
+            </Button>
+          </View>
         </View>
 
-        {/* Personal Info Section */}
-        <View className="px-6 mb-4">
-          <SectionHeader title="Personal Information" />
-          <SectionCard>
-            <InfoRow
+        <Animated.View entering={FadeIn.delay(60)} className="mb-4 px-4">
+          <View
+            className={`rounded-3xl border p-5 ${
+              profileReady
+                ? "border-emerald-100 bg-emerald-50"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-3">
+                <Text
+                  className={`text-sm font-semibold uppercase tracking-wider ${
+                    profileReady ? "text-emerald-700" : "text-amber-800"
+                  }`}
+                >
+                  {t("Profile Status")}
+                </Text>
+                <Text className="mt-2 text-lg font-bold text-gray-900">
+                  {profileReady
+                    ? t("Your health profile is ready")
+                    : t("Required details still missing")}
+                </Text>
+                <Text className="mt-2 text-sm leading-6 text-gray-700">
+                  {profileReady
+                    ? t(
+                        "Your dashboard and recommendations now have the profile details they need."
+                      )
+                    : `${t("Missing")}: ${missingFields
+                        .map((field) =>
+                          field
+                            .replace(/([A-Z])/g, " $1")
+                            .replace(/^\w/, (char) => char.toUpperCase())
+                        )
+                        .join(", ")}.`}
+                </Text>
+              </View>
+              <View className="rounded-full bg-white/80 px-3 py-1.5">
+                <Text className="text-xs font-semibold text-gray-700">
+                  {user?.role === "admin" ? t("Admin") : t("Patient")}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        <View className="mb-4 px-4">
+          <Text className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <T>Profile Snapshot</T>
+          </Text>
+          <View className="flex-row flex-wrap gap-3">
+            <CompactInfoCard
               icon={Mail}
-              label="Email"
-              value={user?.email || "Not set"}
+              label={t("Email")}
+              value={user?.email || t("Not set")}
             />
-            <InfoRow
+            <CompactInfoCard
               icon={Phone}
-              label="Phone"
-              value={user?.phone || "Not set"}
+              label={t("Phone")}
+              value={user?.phone || t("Not set")}
             />
-            <InfoRow
-              icon={Users}
-              label="Age"
-              value={
-                user?.profile?.age ? `${user.profile.age} years` : "Not set"
-              }
+            <CompactInfoCard
+              icon={Heart}
+              label={t("Diabetes Type")}
+              value={getLabelForValue(DIABETES_TYPES, user?.profile?.diabetesType)}
             />
-            <InfoRow
-              icon={UserIcon}
-              label="Sex"
-              value={getLabelForValue(SEX_OPTIONS, user?.profile?.sex)}
-              showDivider={false}
+            <CompactInfoCard
+              icon={Activity}
+              label={t("Activity Level")}
+              value={getLabelForValue(ACTIVITY_LEVELS, user?.profile?.activityLevel)}
             />
-          </SectionCard>
-        </View>
-
-        {/* Health Info Section */}
-        <View className="px-6 mb-4">
-          <SectionHeader title="Health Information" />
-          <SectionCard>
-            <InfoRow
-              icon={Ruler}
-              label="Height"
-              value={
-                user?.profile?.heightCm
-                  ? `${user.profile.heightCm} cm`
-                  : "Not set"
-              }
-            />
-            <InfoRow
+            <CompactInfoCard
               icon={Scale}
-              label="Weight"
+              label={t("Weight")}
               value={
                 user?.profile?.weightKg
                   ? `${user.profile.weightKg} kg`
-                  : "Not set"
+                  : t("Not set")
               }
             />
-            <InfoRow
-              icon={Heart}
-              label="Diabetes Type"
-              value={getLabelForValue(
-                DIABETES_TYPES,
-                user?.profile?.diabetesType
-              )}
+            <CompactInfoCard
+              icon={Ruler}
+              label={t("Height")}
+              value={
+                user?.profile?.heightCm
+                  ? `${user.profile.heightCm} cm`
+                  : t("Not set")
+              }
             />
-            <InfoRow
-              icon={Activity}
-              label="Activity Level"
-              value={getLabelForValue(
-                ACTIVITY_LEVELS,
-                user?.profile?.activityLevel
-              )}
-              showDivider={false}
-            />
-          </SectionCard>
-        </View>
-
-        {/* Allergies Section */}
-        <AllergiesSection allergies={user?.profile?.allergies} />
-
-        {/* Preferences Section */}
-        <View className="px-6 mb-4">
-          <SectionHeader title="Preferences" />
-          <SectionCard>
-            <InfoRow
+            <CompactInfoCard
               icon={DollarSign}
-              label="Income Bracket"
+              label={t("Income Bracket")}
               value={getLabelForValue(
                 INCOME_BRACKETS,
                 user?.profile?.incomeBracket
               )}
             />
-            <InfoRow
+            <CompactInfoCard
               icon={Globe}
-              label="Language"
-              value={user?.profile?.language || "Not set"}
-              showDivider={false}
+              label={t("Language")}
+              value={
+                languages.find(
+                  (item) => item.value === (user?.profile?.language || language)
+                )?.label || user?.profile?.language || t("Not set")
+              }
             />
-          </SectionCard>
+          </View>
+        </View>
+
+        <AllergiesSection allergies={user?.profile?.allergies} />
+
+        <View className="mb-4 px-4">
+          <SectionHeader title={t("Help & Forms")} />
+          <View className="mt-3 flex-row gap-3">
+            <Pressable
+              onPress={handleCallSupport}
+              className="flex-1 rounded-2xl border border-gray-100 bg-white px-4 py-4"
+            >
+              <View className="items-center">
+                <View className="mb-3 h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+                  <Phone size={20} color="#10b981" />
+                </View>
+                <Text className="text-sm font-semibold text-gray-900">
+                  <T>Call Support</T>
+                </Text>
+                <Text className="mt-1 text-center text-xs text-gray-500">
+                  <T>Use the support phone configured by admin</T>
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={handleOpenSupportForm}
+              className="flex-1 rounded-2xl border border-gray-100 bg-white px-4 py-4"
+            >
+              <View className="items-center">
+                <View className="mb-3 h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
+                  <ExternalLink size={20} color="#1447e6" />
+                </View>
+                <Text className="text-sm font-semibold text-gray-900">
+                  <T>Open Form</T>
+                </Text>
+                <Text className="mt-1 text-center text-xs text-gray-500">
+                  <T>Send a review or suggestion inside the app</T>
+                </Text>
+              </View>
+            </Pressable>
+          </View>
         </View>
 
         {/* Data & Sync Section */}
-        <View className="px-6 mb-4">
-          <SectionHeader title="Data & Sync" />
+        <View className="mb-4 px-4">
+          <SectionHeader title={t("Data & Sync")} />
 
           {/* Network Status Banner */}
           <Animated.View entering={FadeIn} className="mb-3">
@@ -510,7 +670,7 @@ export default function ProfileScreen() {
                   isOnline ? "text-green-700" : "text-amber-700"
                 }`}
               >
-                {isOnline ? "Connected to Internet" : "Offline Mode"}
+                {isOnline ? t("Connected to Internet") : t("Offline Mode")}
               </Text>
             </View>
           </Animated.View>
@@ -527,6 +687,7 @@ export default function ProfileScreen() {
                   />
                   <Text className="text-base font-semibold text-gray-800">
                     {clientVersion > 0 ? "Data Synced" : "Sync Required"}
+                    
                   </Text>
                 </View>
                 <Text className="text-xs text-gray-500">
@@ -537,19 +698,25 @@ export default function ProfileScreen() {
             <View className="p-4">
               <View className="flex-row justify-between mb-2">
                 <View className="flex-1">
-                  <Text className="text-xs text-gray-400 mb-1">Last Sync</Text>
+                  <Text className="text-xs text-gray-400 mb-1">
+                    <T>Last Sync</T>
+                  </Text>
                   <Text className="text-sm font-medium text-gray-700">
                     {formatSyncDate(lastSyncAt)}
                   </Text>
                 </View>
                 <View className="flex-1 items-center">
-                  <Text className="text-xs text-gray-400 mb-1">Foods</Text>
+                  <Text className="text-xs text-gray-400 mb-1">
+                    <T>Foods</T>
+                  </Text>
                   <Text className="text-sm font-medium text-gray-700">
                     {foods.length}
                   </Text>
                 </View>
                 <View className="flex-1 items-end">
-                  <Text className="text-xs text-gray-400 mb-1">Rules</Text>
+                  <Text className="text-xs text-gray-400 mb-1">
+                    <T>Rules</T>
+                  </Text>
                   <Text className="text-sm font-medium text-gray-700">
                     {rules.length}
                   </Text>
@@ -593,12 +760,12 @@ export default function ProfileScreen() {
                     <ArrowDownCircle size={24} color="#1447e6" />
                   )}
                 </View>
-                <Text className="text-sm font-semibold text-gray-800 text-center">
-                  Check Updates
-                </Text>
-                <Text className="text-xs text-gray-400 text-center mt-1">
-                  Find new data
-                </Text>
+                  <Text className="text-sm font-semibold text-gray-800 text-center">
+                    <T>Check Updates</T>
+                  </Text>
+                  <Text className="text-xs text-gray-400 text-center mt-1">
+                    <T>Find new data</T>
+                  </Text>
               </View>
             </Pressable>
 
@@ -625,12 +792,12 @@ export default function ProfileScreen() {
                     <Download size={24} color="#f59e0b" />
                   )}
                 </View>
-                <Text className="text-sm font-semibold text-gray-800 text-center">
-                  Force Sync
-                </Text>
-                <Text className="text-xs text-gray-400 text-center mt-1">
-                  Re-download all
-                </Text>
+                  <Text className="text-sm font-semibold text-gray-800 text-center">
+                    <T>Force Sync</T>
+                  </Text>
+                  <Text className="text-xs text-gray-400 text-center mt-1">
+                    <T>Re-download all</T>
+                  </Text>
               </View>
             </Pressable>
           </View>
@@ -654,10 +821,10 @@ export default function ProfileScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-700">
-                    Clear Cached Data
+                    <T>Clear Cached Data</T>
                   </Text>
                   <Text className="text-xs text-gray-400">
-                    Remove all local data and start fresh
+                    <T>Remove all local data and start fresh</T>
                   </Text>
                 </View>
               </View>
@@ -666,27 +833,29 @@ export default function ProfileScreen() {
         </View>
 
         {/* Account Info */}
-        <View className="px-6 mb-4">
+        <View className="mb-4 px-4">
           <View className="bg-gray-50 rounded-2xl p-4">
             <Text className="text-xs text-gray-500 text-center">
-              Member since {formatDate(user?.createdAt)}
+              <T>Member since</T> {formatDate(user?.createdAt)}
             </Text>
           </View>
         </View>
 
         {/* Sign Out Button */}
-        <View className="px-6 mb-3">
+        <View className="mb-3 px-4">
           <Pressable
             onPress={handleLogout}
             className="bg-red-50 rounded-2xl p-4 flex-row items-center justify-center"
           >
             <LogOut size={20} color="#ef4444" />
-            <Text className="text-red-500 font-semibold ml-2">Sign Out</Text>
+            <Text className="text-red-500 font-semibold ml-2">
+              <T>Sign Out</T>
+            </Text>
           </Pressable>
         </View>
 
         {/* Delete Account Section */}
-        <View className="px-6 mb-6">
+        <View className="mb-6 px-4">
           <Pressable
             onPress={handleDeleteAccount}
             disabled={isDeleting}
@@ -698,7 +867,7 @@ export default function ProfileScreen() {
               <>
                 <AlertTriangle size={16} color="#9ca3af" />
                 <Text className="text-gray-400 text-sm ml-2">
-                  Delete Account
+                  <T>Delete Account</T>
                 </Text>
               </>
             )}
@@ -706,7 +875,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* App Version */}
-        <View className="px-6 pb-6">
+        <View className="px-4 pb-6">
           <Text className="text-center text-xs text-gray-400">
             Gluvia v1.0.0
           </Text>

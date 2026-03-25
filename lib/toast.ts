@@ -9,15 +9,15 @@ interface ToastOptions {
 // Simple toast using Alert - works everywhere without native modules
 export const toast = {
   success: (title: string, message?: string) => {
-    Alert.alert(`✅ ${title}`, message);
+    Alert.alert(title, message);
   },
 
   error: (title: string, message?: string) => {
-    Alert.alert(`❌ ${title}`, message);
+    Alert.alert(title, message);
   },
 
   info: (title: string, message?: string) => {
-    Alert.alert(`ℹ️ ${title}`, message);
+    Alert.alert(title, message);
   },
 
   custom: (options: ToastOptions) => {

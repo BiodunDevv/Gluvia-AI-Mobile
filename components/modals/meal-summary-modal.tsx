@@ -12,7 +12,15 @@ import {
   RecommendedFood,
 } from "@/lib/meal-recommendation";
 import { Image } from "expo-image";
-import { Check, Utensils, X } from "lucide-react-native";
+import {
+  AlertCircle,
+  Check,
+  Dumbbell,
+  Flame,
+  Utensils,
+  Wheat,
+  X,
+} from "lucide-react-native";
 import { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -87,13 +95,14 @@ export function MealSummaryModal({
 
   const carbStatus = useMemo(() => {
     if (totals.carbs <= info.carbRange.max * 0.7)
-      return { color: "#22c55e", label: "Excellent", emoji: "🎉" };
+      return { color: "#22c55e", label: "Excellent", icon: Check };
     if (totals.carbs <= info.carbRange.max)
-      return { color: "#84cc16", label: "Good", emoji: "👍" };
+      return { color: "#84cc16", label: "Good", icon: Check };
     if (totals.carbs <= info.carbRange.max * 1.2)
-      return { color: "#f59e0b", label: "Slightly High", emoji: "⚠️" };
-    return { color: "#ef4444", label: "Too High", emoji: "🚨" };
+      return { color: "#f59e0b", label: "Slightly High", icon: AlertCircle };
+    return { color: "#ef4444", label: "Too High", icon: AlertCircle };
   }, [totals.carbs, info.carbRange.max]);
+  const CarbStatusIcon = carbStatus.icon;
 
   return (
     <Modal
@@ -165,7 +174,11 @@ export function MealSummaryModal({
                   className="px-4 py-2 rounded-full flex-row items-center"
                   style={{ backgroundColor: carbStatus.color + "15" }}
                 >
-                  <Text className="text-lg mr-2">{carbStatus.emoji}</Text>
+                  <CarbStatusIcon
+                    size={18}
+                    color={carbStatus.color}
+                    style={{ marginRight: 8 }}
+                  />
                   <Text
                     className="font-semibold"
                     style={{ color: carbStatus.color }}
@@ -180,7 +193,7 @@ export function MealSummaryModal({
                 <View className="flex-row justify-between mb-4">
                   <View className="items-center flex-1">
                     <View className="w-14 h-14 rounded-full bg-orange-100 items-center justify-center mb-2">
-                      <Text className="text-xl">🔥</Text>
+                      <Flame size={22} color="#f97316" />
                     </View>
                     <Text className="text-2xl font-bold text-gray-800">
                       {totals.calories}
@@ -194,7 +207,7 @@ export function MealSummaryModal({
                       className="w-14 h-14 rounded-full items-center justify-center mb-2"
                       style={{ backgroundColor: carbStatus.color + "20" }}
                     >
-                      <Text className="text-xl">⚡</Text>
+                      <Wheat size={22} color={carbStatus.color} />
                     </View>
                     <Text
                       className="text-2xl font-bold"
@@ -206,7 +219,7 @@ export function MealSummaryModal({
                   </View>
                   <View className="items-center flex-1">
                     <View className="w-14 h-14 rounded-full bg-blue-100 items-center justify-center mb-2">
-                      <Text className="text-xl">💪</Text>
+                      <Dumbbell size={22} color="#2563eb" />
                     </View>
                     <Text className="text-2xl font-bold text-gray-800">
                       {totals.protein}g
