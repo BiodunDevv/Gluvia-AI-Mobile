@@ -48,9 +48,9 @@ export default function NotificationsPage() {
   useFocusEffect(
     useCallback(() => {
       fetchNotifications(undefined, { silent: items.length > 0 }).catch(
-        () => {}
+        () => {},
       );
-    }, [fetchNotifications, items.length])
+    }, [fetchNotifications, items.length]),
   );
 
   const getNotificationAccent = (type: string) => {
@@ -96,7 +96,7 @@ export default function NotificationsPage() {
           ]);
 
           return [item._id, { title, body }] as const;
-        })
+        }),
       );
 
       if (!cancelled) {
@@ -179,12 +179,13 @@ export default function NotificationsPage() {
               </Text>
               <Text className="mt-1 text-sm text-gray-500 text-center">
                 <T>
-                  Admin updates, app reminders, and activity alerts will appear here.
+                  Admin updates, app reminders, and activity alerts will appear
+                  here.
                 </T>
               </Text>
             </View>
           ) : (
-            items.map((item) => (
+            items.map((item) =>
               (() => {
                 const accent = getNotificationAccent(item.type);
                 const Icon = accent.icon;
@@ -236,8 +237,8 @@ export default function NotificationsPage() {
                     </View>
                   </Pressable>
                 );
-              })()
-            ))
+              })(),
+            )
           )}
 
           {meta && meta.page < meta.totalPages ? (
@@ -245,7 +246,7 @@ export default function NotificationsPage() {
               onPress={() =>
                 fetchNotifications(
                   { page: meta.page + 1, limit: meta.limit },
-                  { append: true }
+                  { append: true },
                 ).catch(() => {})
               }
               disabled={isLoadingMore}

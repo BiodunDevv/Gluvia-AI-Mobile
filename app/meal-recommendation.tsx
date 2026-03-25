@@ -439,7 +439,7 @@ function CompactMetric({
 function renderFoodCardForSearch(
   food: RecommendedFood,
   isSelected: boolean,
-  onSelect: (food: RecommendedFood) => void
+  onSelect: (food: RecommendedFood) => void,
 ) {
   return <FoodCard food={food} onSelect={onSelect} isSelected={isSelected} />;
 }
@@ -511,31 +511,31 @@ export default function MealRecommendationScreen() {
     () => ({
       profile: user?.profile,
       lastGlucose: lastGlucoseValue,
-      todaysMeals: mealLogs
-        .slice(0, 10)
-        .map((meal) => ({
-          mealType: meal.mealType,
-          carbs: meal.calculatedTotals?.carbs || 0,
-        })),
+      todaysMeals: mealLogs.slice(0, 10).map((meal) => ({
+        mealType: meal.mealType,
+        carbs: meal.calculatedTotals?.carbs || 0,
+      })),
     }),
-    [user?.profile, lastGlucoseValue, mealLogs]
+    [user?.profile, lastGlucoseValue, mealLogs],
   );
   const previousMeal = useMemo(() => {
     const sortedMeals = [...mealLogs].sort(
       (left, right) =>
         new Date(right.timestamp || right.createdAt).getTime() -
-        new Date(left.timestamp || left.createdAt).getTime()
+        new Date(left.timestamp || left.createdAt).getTime(),
     );
 
-    return sortedMeals.find((meal) => meal.mealType !== selectedMealType) || null;
+    return (
+      sortedMeals.find((meal) => meal.mealType !== selectedMealType) || null
+    );
   }, [mealLogs, selectedMealType]);
   const todaysCarbs = useMemo(
     () =>
       mealLogs.reduce(
         (sum, meal) => sum + (meal.calculatedTotals?.carbs || 0),
-        0
+        0,
       ),
-    [mealLogs]
+    [mealLogs],
   );
   const constraintItems = useMemo(() => {
     const profile = user?.profile;
@@ -567,22 +567,20 @@ export default function MealRecommendationScreen() {
         color: "#f59e0b",
       },
     ];
-  }, [
-    recommendation,
-    todaysCarbs,
-    user?.profile,
-  ]);
+  }, [recommendation, todaysCarbs, user?.profile]);
   const selectedCarbs = useMemo(
     () =>
       Math.round(
-        selectedFoods.reduce((sum, food) => sum + food.suggestedPortion.carbs_g, 0) *
-          10
+        selectedFoods.reduce(
+          (sum, food) => sum + food.suggestedPortion.carbs_g,
+          0,
+        ) * 10,
       ) / 10,
-    [selectedFoods]
+    [selectedFoods],
   );
   const compactTips = useMemo(
     () => recommendation?.tips?.slice(0, 2) || [],
-    [recommendation?.tips]
+    [recommendation?.tips],
   );
   const glucoseTone = useMemo(() => {
     if (!lastGlucoseReading) {
@@ -630,7 +628,7 @@ export default function MealRecommendationScreen() {
         rules as RuleTemplate[],
         userContext,
         selectedMealType,
-        { variationSeed }
+        { variationSeed },
       );
       setRecommendation(rec);
     }
@@ -665,21 +663,21 @@ export default function MealRecommendationScreen() {
           calories:
             acc.calories +
             Math.round(
-              (food.nutrients.calories * food.suggestedPortion.grams) / 100
+              (food.nutrients.calories * food.suggestedPortion.grams) / 100,
             ),
           carbs: acc.carbs + food.suggestedPortion.carbs_g,
           protein:
             acc.protein +
             Math.round(
-              (food.nutrients.protein_g * food.suggestedPortion.grams) / 100
+              (food.nutrients.protein_g * food.suggestedPortion.grams) / 100,
             ),
           fat:
             acc.fat +
             Math.round(
-              (food.nutrients.fat_g * food.suggestedPortion.grams) / 100
+              (food.nutrients.fat_g * food.suggestedPortion.grams) / 100,
             ),
         }),
-        { calories: 0, carbs: 0, protein: 0, fat: 0 }
+        { calories: 0, carbs: 0, protein: 0, fat: 0 },
       );
 
       // Create meal log for server upload
@@ -736,7 +734,7 @@ export default function MealRecommendationScreen() {
             text: t("Log Glucose"),
             onPress: () => setShowGlucoseModal(true),
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error("Failed to log meal:", error);
@@ -812,7 +810,13 @@ export default function MealRecommendationScreen() {
     };
 
     fetchExplanation();
-  }, [recommendation, selectedMealType, user?.profile, lastGlucoseValue, isOnline]);
+  }, [
+    recommendation,
+    selectedMealType,
+    user?.profile,
+    lastGlucoseValue,
+    isOnline,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -830,7 +834,7 @@ export default function MealRecommendationScreen() {
         recommendation?.timeContext || getTimeContextMessage(selectedMealType);
       const previousMealText = previousMeal
         ? `Your last logged ${previousMeal.mealType} included about ${Math.round(
-            previousMeal.calculatedTotals?.carbs || 0
+            previousMeal.calculatedTotals?.carbs || 0,
           )}g of carbs. This recommendation adjusts the next meal toward a steadier balance instead of repeating the same pattern.`
         : null;
 
@@ -838,7 +842,10 @@ export default function MealRecommendationScreen() {
         await Promise.all([
           translateDynamicText(timeContext, language),
           recommendationExplanation?.explanation
-            ? translateDynamicText(recommendationExplanation.explanation, language)
+            ? translateDynamicText(
+                recommendationExplanation.explanation,
+                language,
+              )
             : Promise.resolve(null),
           previousMealText
             ? translateDynamicText(previousMealText, language)
@@ -848,8 +855,8 @@ export default function MealRecommendationScreen() {
       const alertTexts = recommendation?.alerts?.length
         ? await Promise.all(
             recommendation.alerts.map((alert) =>
-              translateDynamicText(alert.message, language)
-            )
+              translateDynamicText(alert.message, language),
+            ),
           )
         : [];
 
@@ -950,7 +957,7 @@ export default function MealRecommendationScreen() {
                       setSelectedFoods([]);
                     }}
                   />
-                )
+                ),
               )}
             </ScrollView>
           </View>
@@ -1037,7 +1044,7 @@ export default function MealRecommendationScreen() {
                       {
                         hour: "2-digit",
                         minute: "2-digit",
-                      }
+                      },
                     )}
                   </Text>
                 </View>
@@ -1074,7 +1081,7 @@ export default function MealRecommendationScreen() {
                     `Your last logged ${
                       previousMeal.mealType
                     } included about ${Math.round(
-                      previousMeal.calculatedTotals?.carbs || 0
+                      previousMeal.calculatedTotals?.carbs || 0,
                     )}g of carbs. This plan shifts the next meal toward a steadier balance.`}
                 </Text>
               </View>

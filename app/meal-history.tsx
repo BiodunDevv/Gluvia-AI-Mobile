@@ -70,7 +70,7 @@ export default function MealHistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       getAggregations({ limit: 100 }).catch(() => {});
-    }, [getAggregations])
+    }, [getAggregations]),
   );
 
   // Group meals by date and apply filter
@@ -117,7 +117,7 @@ export default function MealHistoryScreen() {
 
     // Sort by date (newest first)
     return Object.values(groups).sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
   }, [mealLogs, filter]);
 
@@ -141,7 +141,7 @@ export default function MealHistoryScreen() {
         calories: acc.calories + (meal.calculatedTotals?.calories || 0),
         carbs: acc.carbs + (meal.calculatedTotals?.carbs || 0),
       }),
-      { meals: 0, calories: 0, carbs: 0 }
+      { meals: 0, calories: 0, carbs: 0 },
     );
   }, [mealLogs]);
 
