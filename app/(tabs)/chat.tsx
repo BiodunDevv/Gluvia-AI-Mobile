@@ -657,7 +657,7 @@ export default function MealRecommendationHub() {
                   <View className="flex-row items-center">
                     <History size={18} color="#6b7280" />
                     <Text className="ml-2 text-lg font-bold text-gray-800">
-                      Today's Meals
+                      {"Today's Meals"}
                     </Text>
                   </View>
                   <Text className="text-xs text-gray-400">

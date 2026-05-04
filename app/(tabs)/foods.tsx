@@ -434,7 +434,7 @@ export default function FoodsScreen() {
               className="flex-1 ml-2 text-sm text-primary font-medium"
               numberOfLines={1}
             >
-              Results for "{appliedSearch}"
+              Results for {appliedSearch}
             </Text>
             <TouchableOpacity onPress={handleClearSearch}>
               <Ionicons name="close" size={18} color="#1447e6" />

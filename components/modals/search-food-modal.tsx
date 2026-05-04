@@ -171,7 +171,7 @@ export function SearchFoodModal({
         {query.length === 0 && (
           <View className="bg-blue-50 border-b border-blue-100 px-4 md:px-6 py-3">
             <Text className="text-blue-700 text-sm">
-              💡 Try searching for "rice", "beans", "egusi", or any Nigerian
+              {"💡 Try searching for \"rice\", \"beans\", \"egusi\", or any Nigerian"}
               food
             </Text>
           </View>
@@ -222,7 +222,7 @@ export function SearchFoodModal({
                     No Foods Found
                   </Text>
                   <Text className="text-gray-400 mt-2 text-center px-8 leading-5">
-                    No foods match "{query}".{"\n"}Try a different search term.
+                    No foods match {query}.{"\n"}Try a different search term.
                   </Text>
                 </>
               )}
@@ -235,7 +235,7 @@ export function SearchFoodModal({
           <View className="bg-white border-t border-gray-100 px-4 md:px-6 py-2.5">
             <Text className="text-gray-500 text-sm text-center">
               Found {results.length} food{results.length !== 1 ? "s" : ""}{" "}
-              matching "{debouncedQuery}"
+              matching {debouncedQuery}
             </Text>
           </View>
         )}

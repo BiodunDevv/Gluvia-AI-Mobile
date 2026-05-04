@@ -65,7 +65,7 @@ export default function ForgotPasswordScreen() {
                 </Text>
                 <Text className="text-sm leading-5 text-gray-500">
                   <T>
-                    Enter your email address and we'll send a secure reset link.
+                    {"Enter your email address and we'll send a secure reset link."}
                   </T>
                 </Text>
               </View>

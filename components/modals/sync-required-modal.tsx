@@ -339,8 +339,7 @@ export function SyncRequiredModal({
               className="mt-4 bg-amber-500/20 px-4 py-3 rounded-lg max-w-md border border-amber-500/30"
             >
               <Text className="text-amber-200 text-xs font-medium leading-5">
-                Note: You won't be able to use Gluvia until you sync the latest
-                data. You can skip for now and sync later.
+                {"Note: You won't be able to use Gluvia until you sync the latest data. You can skip for now and sync later."}
               </Text>
             </Animated.View>
           )}

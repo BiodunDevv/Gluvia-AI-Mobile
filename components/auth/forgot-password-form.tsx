@@ -53,7 +53,7 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
           <T>Check your email</T>
         </Text>
         <Text className="mb-1 px-6 text-center text-sm leading-6 text-gray-500">
-          <T>We've sent password reset instructions to:</T>
+          <T>{"We've sent password reset instructions to:"}</T>
         </Text>
         <Text className="mb-8 text-center text-base font-semibold text-gray-900">
           {email}
@@ -71,7 +71,7 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
           activeOpacity={0.7}
         >
           <Text className="text-center text-sm font-semibold text-primary">
-            <T>Didn't receive email? Try again</T>
+            <T>{"Didn't receive email? Try again"}</T>
           </Text>
         </TouchableOpacity>
 

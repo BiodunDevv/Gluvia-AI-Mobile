@@ -46,7 +46,7 @@ export function TodayStatsCard({
       className="px-6 mb-6"
     >
       <Text className="text-lg font-semibold text-gray-900 mb-3">
-        Today's Nutrition
+        {"Today's Nutrition"}
       </Text>
       <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
         {isLoading ? (
