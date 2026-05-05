@@ -40,12 +40,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 // ─── Google CSE image fetch ───────────────────────────────────────────────────
 
-const GOOGLE_CSE_API_KEY = "AIzaSyAczXPf8HqWsxRbJrmLbOdoludNz2MRAHw";
-const GOOGLE_CSE_ENGINE_ID = "03eaddfad6760446e";
+const GOOGLE_CSE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_CSE_API_KEY;
+const GOOGLE_CSE_ENGINE_ID = process.env.EXPO_PUBLIC_GOOGLE_CSE_ENGINE_ID;
 
 const imageCache = new Map<string, string | null>();
 
 async function fetchFoodImageFromGoogle(foodName: string): Promise<string | null> {
+  if (!GOOGLE_CSE_API_KEY || !GOOGLE_CSE_ENGINE_ID) return null;
+
   const cacheKey = foodName.toLowerCase().trim();
   if (imageCache.has(cacheKey)) return imageCache.get(cacheKey) ?? null;
 
