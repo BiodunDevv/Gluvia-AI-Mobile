@@ -5,10 +5,11 @@
  * with calories, carbs, and meals count. Includes skeleton loading state.
  */
 
+import { AppLoader } from "@/components/ui/app-loader";
 import { Href, router } from "expo-router";
 import { Apple, Flame, Plus, Utensils } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
-import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp } from "react-native-reanimated";
 
 export interface TodayStatsCardProps {
   totalCalories: number;
@@ -17,19 +18,6 @@ export interface TodayStatsCardProps {
   isLoading?: boolean;
   showLogMealButton?: boolean;
   animationDelay?: number;
-}
-
-// Skeleton Loading Component
-function StatSkeleton() {
-  return (
-    <View className="flex-1 items-center py-2">
-      <View className="w-12 h-12 rounded-full bg-gray-100 items-center justify-center mb-2">
-        <View className="w-6 h-6 bg-gray-200 rounded-full" />
-      </View>
-      <View className="h-8 w-12 bg-gray-200 rounded-lg mb-1" />
-      <View className="h-3 w-14 bg-gray-100 rounded-full" />
-    </View>
-  );
 }
 
 export function TodayStatsCard({
@@ -50,23 +38,20 @@ export function TodayStatsCard({
       </Text>
       <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
         {isLoading ? (
-          // Skeleton Loading State
-          <Animated.View entering={FadeIn} className="flex-row">
-            <StatSkeleton />
-            <View className="w-px bg-gray-100" />
-            <StatSkeleton />
-            <View className="w-px bg-gray-100" />
-            <StatSkeleton />
-          </Animated.View>
+          <View className="items-center justify-center py-8">
+            <AppLoader size="lg" color="#1447e6" />
+            <Text className="mt-3 text-sm text-gray-500">
+              Loading today&apos;s nutrition...
+            </Text>
+          </View>
         ) : (
-          // Actual Data
           <View className="flex-row">
             <View className="flex-1 items-center py-2">
               <View className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center mb-2">
                 <Flame size={24} color="#f97316" />
               </View>
               <Text className="text-2xl font-bold text-gray-900">
-                {totalCalories || "--"}
+                {Math.round(totalCalories)}
               </Text>
               <Text className="text-xs text-gray-500">Calories</Text>
             </View>
@@ -76,7 +61,7 @@ export function TodayStatsCard({
                 <Apple size={24} color="#a855f7" />
               </View>
               <Text className="text-2xl font-bold text-gray-900">
-                {totalCarbs ? `${Math.round(totalCarbs)}g` : "--"}
+                {`${Math.round(totalCarbs)}g`}
               </Text>
               <Text className="text-xs text-gray-500">Carbs</Text>
             </View>
@@ -86,7 +71,7 @@ export function TodayStatsCard({
                 <Utensils size={24} color="#10b981" />
               </View>
               <Text className="text-2xl font-bold text-gray-900">
-                {mealsCount || "--"}
+                {mealsCount}
               </Text>
               <Text className="text-xs text-gray-500">Meals</Text>
             </View>

@@ -1,5 +1,5 @@
 ﻿import { AllergiesSection, ProfileHeader } from "@/components/profile";
-import { Button } from "@/components/ui";
+import { AppLoader, Button } from "@/components/ui";
 import { InfoRow } from "@/components/ui/info-row";
 import { SectionCard, SectionHeader } from "@/components/ui/section";
 import { T, useTranslation } from "@/hooks/use-translation";
@@ -35,7 +35,6 @@ import {
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -281,6 +280,26 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleRequestAccountDeletion = async () => {
+    const url = "https://gluvia.vercel.app/delete-account";
+
+    if (!isOnline) {
+      Alert.alert(
+        "Internet Required",
+        "You need an internet connection to open the account deletion request page."
+      );
+      return;
+    }
+
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+      });
+    } catch {
+      await Linking.openURL(url);
+    }
   };
 
   const handleOpenSupportForm = async () => {
@@ -755,7 +774,7 @@ export default function ProfileScreen() {
               <View className="items-center">
                 <View className="w-12 h-12 rounded-xl bg-blue-50 items-center justify-center mb-3">
                   {isCheckingUpdates ? (
-                    <ActivityIndicator size="small" color="#1447e6" />
+                    <AppLoader size="sm" color="#1447e6" />
                   ) : (
                     <ArrowDownCircle size={24} color="#1447e6" />
                   )}
@@ -787,7 +806,7 @@ export default function ProfileScreen() {
               <View className="items-center">
                 <View className="w-12 h-12 rounded-xl bg-amber-50 items-center justify-center mb-3">
                   {isForceSyncing ? (
-                    <ActivityIndicator size="small" color="#f59e0b" />
+                    <AppLoader size="sm" color="#f59e0b" />
                   ) : (
                     <Download size={24} color="#f59e0b" />
                   )}
@@ -814,7 +833,7 @@ export default function ProfileScreen() {
               <View className="flex-row items-center flex-1">
                 <View className="w-10 h-10 rounded-xl bg-gray-100 items-center justify-center mr-3">
                   {isClearingData ? (
-                    <ActivityIndicator size="small" color="#6b7280" />
+                    <AppLoader size="sm" color="#6b7280" />
                   ) : (
                     <CloudOff size={20} color="#6b7280" />
                   )}
@@ -855,14 +874,33 @@ export default function ProfileScreen() {
         </View>
 
         {/* Delete Account Section */}
-        <View className="mb-6 px-4">
+        <View className="mb-6 gap-3 px-4">
+          <Pressable
+            onPress={handleRequestAccountDeletion}
+            className="rounded-2xl border border-red-100 bg-red-50 p-4"
+          >
+            <View className="flex-row items-center">
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl bg-white">
+                <ExternalLink size={18} color="#ef4444" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-red-600">
+                  <T>Request account deletion</T>
+                </Text>
+                <Text className="mt-1 text-xs leading-5 text-red-400">
+                  <T>Open the verified web request form for Google Play account deletion.</T>
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+
           <Pressable
             onPress={handleDeleteAccount}
             disabled={isDeleting}
             className="flex-row items-center justify-center py-3"
           >
             {isDeleting ? (
-              <ActivityIndicator size="small" color="#9ca3af" />
+              <AppLoader size="sm" color="#9ca3af" />
             ) : (
               <>
                 <AlertTriangle size={16} color="#9ca3af" />

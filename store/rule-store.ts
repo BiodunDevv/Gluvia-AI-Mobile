@@ -1,3 +1,12 @@
+/**
+ * rule-store
+ *
+ * Online-first: rules live in sync-store (server truth).
+ * This store is a thin selector layer on top of sync-store.
+ * Falls back to SQLite cache when sync-store is empty.
+ * No separate network calls — sync-store owns all rule fetching.
+ */
+
 import {
   CachedRule,
   getCachedRuleBySlug,
@@ -39,7 +48,6 @@ interface RuleState {
   syncRules: () => Promise<void>;
 }
 
-// Convert cached rule to RuleTemplate interface
 function cachedToRule(cached: CachedRule): RuleTemplate {
   return {
     _id: cached.id,
@@ -66,77 +74,48 @@ export const useRuleStore = create<RuleState>((set) => ({
   fetchRules: async () => {
     set({ isLoading: true });
     try {
-      // Get rules from sync store first
       const syncedRules = useSyncStore.getState().rules;
 
-      // If sync store is empty, check cache
-      if (syncedRules.length === 0) {
-        const cachedRules = await getCachedRules();
-
-        // If cache is also empty, trigger a full sync
-        if (cachedRules.length === 0) {
-          try {
-            await useSyncStore.getState().getFullSync();
-            // After sync, get the rules from sync store
-            const freshRules = useSyncStore.getState().rules;
-
-            set({
-              rules: freshRules,
-              isLoading: false,
-              isOffline: false,
-            });
-            return;
-          } catch (syncError) {
-            console.error("Failed to sync:", syncError);
-            toast.error("Failed to load rules. Please check your connection.");
-            set({ isLoading: false });
-            return;
-          }
-        }
-
-        // Use cached data
-        set({
-          rules: cachedRules.map(cachedToRule),
-          isLoading: false,
-          isOffline: true,
-        });
+      if (syncedRules.length > 0) {
+        set({ rules: syncedRules, isLoading: false, isOffline: false });
         return;
       }
 
-      // Use synced rules
-      set({
-        rules: syncedRules,
-        isLoading: false,
-        isOffline: false,
-      });
-    } catch (error: any) {
-      toast.error("Failed to fetch rules");
-      set({ isLoading: false, rules: [] });
+      // sync-store empty — check SQLite cache
+      const cachedRules = await getCachedRules();
+      if (cachedRules.length > 0) {
+        set({ rules: cachedRules.map(cachedToRule), isLoading: false, isOffline: true });
+        return;
+      }
+
+      // Nothing cached — trigger a full sync
+      await useSyncStore.getState().getFullSync();
+      const freshRules = useSyncStore.getState().rules;
+      set({ rules: freshRules, isLoading: false, isOffline: false });
+    } catch {
+      toast.error("Failed to load rules. Please check your connection.");
+      set({ isLoading: false });
     }
   },
 
   getRuleBySlug: async (slug: string) => {
     set({ isLoading: true });
     try {
-      // First check sync store
-      const syncedRules = useSyncStore.getState().rules;
-      let rule = syncedRules.find((r) => r.slug === slug);
-
-      if (rule) {
-        set({ currentRule: rule, isLoading: false, isOffline: false });
-        return rule;
+      const synced = useSyncStore.getState().rules.find((r) => r.slug === slug);
+      if (synced) {
+        set({ currentRule: synced, isLoading: false, isOffline: false });
+        return synced;
       }
 
-      // Fallback to cached data
-      const cachedRule = await getCachedRuleBySlug(slug);
-      if (cachedRule) {
-        rule = cachedToRule(cachedRule);
+      const cached = await getCachedRuleBySlug(slug);
+      if (cached) {
+        const rule = cachedToRule(cached);
         set({ currentRule: rule, isLoading: false, isOffline: true });
         return rule;
       }
 
       throw new Error("Rule not found");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to fetch rule details");
       set({ isLoading: false, currentRule: null });
       return null;
@@ -148,15 +127,13 @@ export const useRuleStore = create<RuleState>((set) => ({
   },
 
   syncRules: async () => {
-    // Trigger sync store's full sync
     set({ isLoading: true });
     try {
       await useSyncStore.getState().getFullSync();
       const rules = useSyncStore.getState().rules;
       set({ rules, isLoading: false });
-      toast.success(`Synced ${rules.length} rules for offline use`);
-    } catch (error) {
-      console.error("Error syncing rules:", error);
+      toast.success(`Synced ${rules.length} rules`);
+    } catch {
       set({ isLoading: false });
       toast.error("Failed to sync rules");
     }

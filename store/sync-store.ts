@@ -108,6 +108,9 @@ export interface MealLogFood {
   foodId: string;
   portionSize: string;
   quantity: number;
+  localName?: string;
+  canonicalName?: string;
+  category?: string;
 }
 
 export interface MealLog {
@@ -142,7 +145,7 @@ export interface UploadMealLogsResponse {
   results: {
     added: number;
     duplicates: number;
-    errors: string[];
+    errors: Array<string | { clientGeneratedId?: string; error: string; code?: string }>;
   };
 }
 
@@ -244,6 +247,18 @@ export interface AggregationsResponse {
   };
 }
 
+export interface AggregationSnapshot {
+  key: string;
+  filters: AggregationFilters;
+  mealLogs: AggregatedMealLog[];
+  glucoseLogs: AggregatedGlucoseLog[];
+  lastGlucoseReading: AggregatedGlucoseLog | null;
+  glucoseStats: GlucoseStats | null;
+  mealStats: MealStats | null;
+  meta: AggregationsResponse["meta"];
+  fetchedAt: number;
+}
+
 export interface GlucoseStats {
   average: number;
   min: number;
@@ -270,6 +285,8 @@ export interface SyncState {
   isSyncing: boolean;
   isUploading: boolean;
   isFetchingAggregations: boolean;
+  aggregationsLoadedOnce: boolean;
+  aggregationsInvalidatedAt: number;
   pendingMealLogs: MealLog[];
   pendingGlucoseLogs: GlucoseLog[];
   syncError: string | null;
@@ -285,6 +302,7 @@ export interface SyncState {
   lastGlucoseReading: AggregatedGlucoseLog | null;
   glucoseStats: GlucoseStats | null;
   mealStats: MealStats | null;
+  aggregationSnapshots: Record<string, AggregationSnapshot>;
 
   // Actions
   uploadMealLogs: (mealLogs: MealLog[]) => Promise<UploadMealLogsResponse>;
@@ -307,8 +325,10 @@ export interface SyncState {
     rulesUpdated: number;
   }>;
   getAggregations: (
-    filters?: AggregationFilters
+    filters?: AggregationFilters,
+    options?: { force?: boolean; ttlMs?: number }
   ) => Promise<AggregationsResponse>;
+  invalidateAggregations: () => void;
   addPendingMealLog: (log: MealLog) => void;
   addPendingGlucoseLog: (log: GlucoseLog) => void;
   clearPendingLogs: () => void;
@@ -419,6 +439,89 @@ function parseSyncPayload<T>(
   return (responseData?.data?.[key] ?? responseData?.[key] ?? fallback) as T;
 }
 
+function normalizeAggregationFilters(
+  filters?: AggregationFilters
+): AggregationFilters {
+  return {
+    from: filters?.from,
+    to: filters?.to,
+    page: filters?.page ?? 1,
+    limit: filters?.limit ?? 50,
+  };
+}
+
+export function getAggregationWindowKey(filters?: AggregationFilters) {
+  const normalized = normalizeAggregationFilters(filters);
+  return JSON.stringify(normalized);
+}
+
+function calculateAggregationSnapshot(
+  filters: AggregationFilters,
+  result: AggregationsResponse
+): AggregationSnapshot {
+  const sortedGlucose = [...(result.glucoseLogs || [])].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  const lastGlucoseReading = sortedGlucose[0] || null;
+
+  let glucoseStats: GlucoseStats | null = null;
+  if (sortedGlucose.length > 0) {
+    const values = sortedGlucose.map((g) => g.valueMgDl);
+    const inRangeCount = values.filter((v) => v >= 70 && v <= 180).length;
+    glucoseStats = {
+      average: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+      min: Math.min(...values),
+      max: Math.max(...values),
+      count: values.length,
+      inRange: inRangeCount,
+      inRangePercent: Math.round((inRangeCount / values.length) * 100),
+      unit: "mg/dL",
+    };
+  }
+
+  let mealStats: MealStats | null = null;
+  if (result.mealLogs && result.mealLogs.length > 0) {
+    const totalCarbs = result.mealLogs.reduce(
+      (sum, m) => sum + (m.calculatedTotals?.carbs || 0),
+      0
+    );
+    const totalCalories = result.mealLogs.reduce(
+      (sum, m) => sum + (m.calculatedTotals?.calories || 0),
+      0
+    );
+    mealStats = {
+      totalMeals: result.mealLogs.length,
+      totalCalories,
+      totalCarbs,
+      averageCarbs: totalCarbs / result.mealLogs.length,
+      averageCalories: totalCalories / result.mealLogs.length,
+    };
+  }
+
+  return {
+    key: getAggregationWindowKey(filters),
+    filters,
+    mealLogs: result.mealLogs || [],
+    glucoseLogs: result.glucoseLogs || [],
+    lastGlucoseReading,
+    glucoseStats,
+    mealStats,
+    meta: result.meta,
+    fetchedAt: Date.now(),
+  };
+}
+
+function buildAggregationsResponseFromSnapshot(
+  snapshot: AggregationSnapshot
+): AggregationsResponse {
+  return {
+    success: true,
+    mealLogs: snapshot.mealLogs,
+    glucoseLogs: snapshot.glucoseLogs,
+    meta: snapshot.meta,
+  };
+}
+
 // ============ STORE ============
 
 export const useSyncStore = create<SyncState>((set, get) => ({
@@ -429,6 +532,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   isSyncing: false,
   isUploading: false,
   isFetchingAggregations: false,
+  aggregationsLoadedOnce: false,
+  aggregationsInvalidatedAt: 0,
   pendingMealLogs: [],
   pendingGlucoseLogs: [],
   syncError: null,
@@ -444,6 +549,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   lastGlucoseReading: null,
   glucoseStats: null,
   mealStats: null,
+  aggregationSnapshots: {},
 
   /**
    * Upload meal logs to the server
@@ -460,9 +566,21 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         errors: [],
       };
 
+      const uploadErrors = Array.isArray(results.errors) ? results.errors : [];
+
+      if (uploadErrors.length > 0 && (results.added || 0) === 0) {
+        const firstError = uploadErrors[0];
+        const message =
+          typeof firstError === "string"
+            ? firstError
+            : firstError?.error || "Meal upload failed";
+        throw new Error(message);
+      }
+
       set({
         isUploading: false,
         lastSyncAt: new Date().toISOString(),
+        aggregationsInvalidatedAt: Date.now(),
       });
 
       return {
@@ -500,6 +618,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       set({
         isUploading: false,
         lastSyncAt: new Date().toISOString(),
+        aggregationsInvalidatedAt: Date.now(),
       });
 
       return {
@@ -550,7 +669,49 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     };
 
     // Immediately update the store with optimistic data
-    set({ lastGlucoseReading: optimisticReading });
+    set((state) => {
+      const updatedSnapshots: Record<string, AggregationSnapshot> = {};
+
+      for (const [key, snapshot] of Object.entries(state.aggregationSnapshots)) {
+        const snapshotFrom = snapshot.filters.from
+          ? new Date(snapshot.filters.from).getTime()
+          : Number.NEGATIVE_INFINITY;
+        const snapshotTo = snapshot.filters.to
+          ? new Date(snapshot.filters.to).getTime()
+          : Number.POSITIVE_INFINITY;
+        const readingTime = new Date(log.timestamp).getTime();
+
+        if (readingTime < snapshotFrom || readingTime > snapshotTo) {
+          updatedSnapshots[key] = snapshot;
+          continue;
+        }
+
+        const nextGlucoseLogs = [optimisticReading, ...snapshot.glucoseLogs]
+          .filter(
+            (reading, index, array) =>
+              array.findIndex((candidate) => candidate._id === reading._id) ===
+              index
+          )
+          .sort(
+            (left, right) =>
+              new Date(right.timestamp).getTime() -
+              new Date(left.timestamp).getTime()
+          );
+
+        updatedSnapshots[key] = calculateAggregationSnapshot(snapshot.filters, {
+          success: true,
+          mealLogs: snapshot.mealLogs,
+          glucoseLogs: nextGlucoseLogs,
+          meta: snapshot.meta,
+        });
+      }
+
+      return {
+        lastGlucoseReading: optimisticReading,
+        aggregationSnapshots: updatedSnapshots,
+        aggregationsInvalidatedAt: Date.now(),
+      };
+    });
 
     // Save to offline DB immediately
     try {
@@ -569,8 +730,9 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         await get().uploadGlucoseLogs([glucoseLog]);
         // Mark as synced in DB
         await markGlucoseLogsSynced([clientGeneratedId]);
-        // Refresh aggregations to get actual server data
-        await get().getAggregations();
+        // Invalidate all cached snapshots then force-refresh with history page params
+        get().invalidateAggregations();
+        await get().getAggregations({ page: 1, limit: 200 }, { force: true });
       } catch (err) {
         // If upload fails, log will remain in pending DB
         console.error("Failed to upload glucose log, will retry later:", err);
@@ -584,6 +746,76 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   logMeal: async (log: Omit<MealLog, "clientGeneratedId">, userId: string) => {
     const clientGeneratedId = generateClientId("meal");
     const mealLog: MealLog = { ...log, clientGeneratedId };
+
+    const optimisticMealLog: AggregatedMealLog = {
+      _id: clientGeneratedId,
+      userId,
+      mealType: mealLog.mealType || "snack",
+      entries: mealLog.foods.map((food) => ({
+        foodId: {
+          _id: food.foodId,
+          localName: food.localName || food.canonicalName || "Meal item",
+          category: food.category || "Food",
+        },
+        portionName: food.portionSize,
+        portionSize: food.portionSize,
+        grams: 0,
+        quantity: food.quantity,
+        carbs_g: 0,
+      })),
+      calculatedTotals: {
+        calories: mealLog.totalCalories || 0,
+        carbs: mealLog.totalCarbs || 0,
+        protein: mealLog.totalProtein || 0,
+        fibre: 0,
+      },
+      timestamp: mealLog.timestamp,
+      clientGeneratedId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    set((state) => {
+      const updatedSnapshots: Record<string, AggregationSnapshot> = {};
+
+      for (const [key, snapshot] of Object.entries(state.aggregationSnapshots)) {
+        const snapshotFrom = snapshot.filters.from
+          ? new Date(snapshot.filters.from).getTime()
+          : Number.NEGATIVE_INFINITY;
+        const snapshotTo = snapshot.filters.to
+          ? new Date(snapshot.filters.to).getTime()
+          : Number.POSITIVE_INFINITY;
+        const mealTime = new Date(mealLog.timestamp).getTime();
+
+        if (mealTime < snapshotFrom || mealTime > snapshotTo) {
+          updatedSnapshots[key] = snapshot;
+          continue;
+        }
+
+        const nextMealLogs = [optimisticMealLog, ...snapshot.mealLogs]
+          .filter(
+            (meal, index, array) =>
+              array.findIndex((candidate) => candidate._id === meal._id) === index
+          )
+          .sort(
+            (left, right) =>
+              new Date(right.timestamp).getTime() -
+              new Date(left.timestamp).getTime()
+          );
+
+        updatedSnapshots[key] = calculateAggregationSnapshot(snapshot.filters, {
+          success: true,
+          mealLogs: nextMealLogs,
+          glucoseLogs: snapshot.glucoseLogs,
+          meta: snapshot.meta,
+        });
+      }
+
+      return {
+        aggregationSnapshots: updatedSnapshots,
+        aggregationsInvalidatedAt: Date.now(),
+      };
+    });
 
     // Save to offline DB immediately
     try {
@@ -603,11 +835,15 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     const { isOnline } = get();
     if (isOnline) {
       try {
-        await get().uploadMealLogs([mealLog]);
+        const uploadResult = await get().uploadMealLogs([mealLog]);
+        if (uploadResult.results.errors?.length) {
+          throw new Error("Meal upload returned validation errors");
+        }
         // Mark as synced in DB
         await markMealLogsSynced([clientGeneratedId]);
-        // Refresh aggregations
-        await get().getAggregations();
+        // Invalidate all cached snapshots so history page re-fetches fresh data
+        get().invalidateAggregations();
+        await get().getAggregations({ page: 1, limit: 200 }, { force: true });
       } catch (err) {
         // If upload fails, log will remain in pending DB
         console.error("Failed to upload meal log, will retry later:", err);
@@ -875,15 +1111,44 @@ export const useSyncStore = create<SyncState>((set, get) => ({
    * Supports date filtering and pagination
    * Endpoint: GET /sync/aggregations
    */
-  getAggregations: async (filters?: AggregationFilters) => {
-    set({ isFetchingAggregations: true, syncError: null });
+  getAggregations: async (
+    filters?: AggregationFilters,
+    options?: { force?: boolean; ttlMs?: number }
+  ) => {
+    const normalizedFilters = normalizeAggregationFilters(filters);
+    const cacheKey = getAggregationWindowKey(normalizedFilters);
+    const ttlMs = options?.ttlMs ?? 120000;
+    const cachedSnapshot = get().aggregationSnapshots[cacheKey];
 
     try {
+      const invalidatedAt = get().aggregationsInvalidatedAt;
+
+      if (
+        cachedSnapshot &&
+        !options?.force &&
+        cachedSnapshot.fetchedAt >= invalidatedAt &&
+        Date.now() - cachedSnapshot.fetchedAt < ttlMs
+      ) {
+        set({
+          mealLogs: cachedSnapshot.mealLogs,
+          glucoseLogs: cachedSnapshot.glucoseLogs,
+          lastGlucoseReading: cachedSnapshot.lastGlucoseReading,
+          glucoseStats: cachedSnapshot.glucoseStats,
+          mealStats: cachedSnapshot.mealStats,
+          isFetchingAggregations: false,
+          aggregationsLoadedOnce: true,
+        });
+
+        return buildAggregationsResponseFromSnapshot(cachedSnapshot);
+      }
+
+      set({ isFetchingAggregations: true, syncError: null });
+
       const params: Record<string, any> = {};
-      if (filters?.from) params.from = filters.from;
-      if (filters?.to) params.to = filters.to;
-      if (filters?.page) params.page = filters.page;
-      if (filters?.limit) params.limit = filters.limit;
+      if (normalizedFilters.from) params.from = normalizedFilters.from;
+      if (normalizedFilters.to) params.to = normalizedFilters.to;
+      if (normalizedFilters.page) params.page = normalizedFilters.page;
+      if (normalizedFilters.limit) params.limit = normalizedFilters.limit;
 
       const response = await api.get("/sync/aggregations", { params });
       const resultData = response.data?.data || response.data;
@@ -897,62 +1162,38 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         },
       };
 
-      // Find the most recent glucose reading (use valueMgDl from API)
-      const sortedGlucose = [...(result.glucoseLogs || [])].sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      const lastGlucoseReading = sortedGlucose[0] || null;
-
-      // Calculate glucose stats from valueMgDl
-      let glucoseStats: GlucoseStats | null = null;
-      if (sortedGlucose.length > 0) {
-        const values = sortedGlucose.map((g) => g.valueMgDl);
-        const inRangeCount = values.filter((v) => v >= 70 && v <= 180).length;
-        glucoseStats = {
-          average: Math.round(
-            values.reduce((a, b) => a + b, 0) / values.length
-          ),
-          min: Math.min(...values),
-          max: Math.max(...values),
-          count: values.length,
-          inRange: inRangeCount,
-          inRangePercent: Math.round((inRangeCount / values.length) * 100),
-          unit: "mg/dL",
-        };
-      }
-
-      // Calculate meal stats from calculatedTotals
-      let mealStats: MealStats | null = null;
-      if (result.mealLogs && result.mealLogs.length > 0) {
-        const totalCarbs = result.mealLogs.reduce(
-          (sum, m) => sum + (m.calculatedTotals?.carbs || 0),
-          0
-        );
-        const totalCalories = result.mealLogs.reduce(
-          (sum, m) => sum + (m.calculatedTotals?.calories || 0),
-          0
-        );
-        mealStats = {
-          totalMeals: result.mealLogs.length,
-          totalCalories,
-          totalCarbs,
-          averageCarbs: totalCarbs / result.mealLogs.length,
-          averageCalories: totalCalories / result.mealLogs.length,
-        };
-      }
+      const snapshot = calculateAggregationSnapshot(normalizedFilters, result);
 
       set({
-        mealLogs: result.mealLogs || [],
-        glucoseLogs: result.glucoseLogs || [],
-        lastGlucoseReading,
-        glucoseStats,
-        mealStats,
+        mealLogs: snapshot.mealLogs,
+        glucoseLogs: snapshot.glucoseLogs,
+        lastGlucoseReading: snapshot.lastGlucoseReading,
+        glucoseStats: snapshot.glucoseStats,
+        mealStats: snapshot.mealStats,
+        aggregationsLoadedOnce: true,
+        aggregationSnapshots: {
+          ...get().aggregationSnapshots,
+          [snapshot.key]: snapshot,
+        },
         isFetchingAggregations: false,
       });
 
       return result;
     } catch (error: any) {
+      if (cachedSnapshot) {
+        set({
+          mealLogs: cachedSnapshot.mealLogs,
+          glucoseLogs: cachedSnapshot.glucoseLogs,
+          lastGlucoseReading: cachedSnapshot.lastGlucoseReading,
+          glucoseStats: cachedSnapshot.glucoseStats,
+          mealStats: cachedSnapshot.mealStats,
+          isFetchingAggregations: false,
+          aggregationsLoadedOnce: true,
+        });
+
+        return buildAggregationsResponseFromSnapshot(cachedSnapshot);
+      }
+
       const errorMessage = getApiErrorMessage(
         error,
         "Failed to get aggregations"
@@ -960,6 +1201,10 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       set({ isFetchingAggregations: false, syncError: errorMessage });
       throw error;
     }
+  },
+
+  invalidateAggregations: () => {
+    set({ aggregationsInvalidatedAt: Date.now() });
   },
 
   /**
@@ -1033,12 +1278,25 @@ export const useSyncStore = create<SyncState>((set, get) => ({
           notes: log.notes,
         }));
 
-        await get().uploadMealLogs(mealLogs);
-        await markMealLogsSynced(mealLogs.map((l) => l.clientGeneratedId));
+        const uploadResult = await get().uploadMealLogs(mealLogs);
+        const failedIds = new Set(
+          (uploadResult.results.errors || [])
+            .map((error) =>
+              typeof error === "string" ? undefined : error.clientGeneratedId
+            )
+            .filter(Boolean)
+        );
+        const syncedMealIds = mealLogs
+          .map((meal) => meal.clientGeneratedId)
+          .filter((id) => !failedIds.has(id));
+        if (syncedMealIds.length > 0) {
+          await markMealLogsSynced(syncedMealIds);
+        }
       }
 
-      // Refresh aggregations after successful sync
-      await get().getAggregations();
+      // Refresh aggregations with the same key used by history page
+      get().invalidateAggregations();
+      await get().getAggregations({ page: 1, limit: 200 }, { force: true });
     } catch (error) {
       // Logs remain in pending DB for retry
       console.error("Failed to sync pending logs:", error);
@@ -1097,12 +1355,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   /**
-   * Initialize sync store from cached data if empty
+   * Initialize sync store from cached data if empty, then trigger a
+   * background delta-sync to pick up any server changes since last session.
    */
   initializeFromCache: async () => {
     const { foods, rules } = get();
 
-    // Only load from cache if sync store is empty
     if (foods.length === 0 || rules.length === 0) {
       console.log("[SYNC] Loading data from cache...");
 
@@ -1160,10 +1418,20 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         console.error("[SYNC] Failed to load from cache:", error);
       }
     }
+
+    // Background delta-sync to pick up any server-side changes since last session.
+    // Runs after cache is hydrated so the UI has instant data while the update
+    // applies silently in the background.
+    if (get().isOnline) {
+      get().checkAndApplyUpdates().catch((err) => {
+        console.warn("[SYNC] Background delta check failed:", err);
+      });
+    }
   },
 
   /**
-   * Set online status
+   * Set online status.
+   * Returns whether the device just came back online so callers can react.
    */
   setOnlineStatus: (isOnline: boolean) => {
     set({ isOnline });
@@ -1206,6 +1474,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       isSyncing: false,
       isUploading: false,
       isFetchingAggregations: false,
+      aggregationsLoadedOnce: false,
+      aggregationsInvalidatedAt: 0,
       pendingMealLogs: [],
       pendingGlucoseLogs: [],
       syncError: null,
@@ -1216,6 +1486,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       lastGlucoseReading: null,
       glucoseStats: null,
       mealStats: null,
+      aggregationSnapshots: {},
     });
 
     console.log("[SYNC] All data cleared and reset complete");
@@ -1233,6 +1504,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       isSyncing: false,
       isUploading: false,
       isFetchingAggregations: false,
+      aggregationsLoadedOnce: false,
+      aggregationsInvalidatedAt: 0,
       pendingMealLogs: [],
       pendingGlucoseLogs: [],
       syncError: null,
@@ -1243,6 +1516,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       lastGlucoseReading: null,
       glucoseStats: null,
       mealStats: null,
+      aggregationSnapshots: {},
     });
   },
 }));
@@ -1255,6 +1529,16 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 export function useLastGlucoseValue(): number | undefined {
   const lastGlucoseReading = useSyncStore((state) => state.lastGlucoseReading);
   return lastGlucoseReading?.valueMgDl;
+}
+
+export function useNetworkOffline() {
+  return useSyncStore((state) => !state.isOnline);
+}
+
+export function useAggregationSnapshot(filters?: AggregationFilters) {
+  return useSyncStore(
+    (state) => state.aggregationSnapshots[getAggregationWindowKey(filters)]
+  );
 }
 
 /**

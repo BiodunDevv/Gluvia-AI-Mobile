@@ -106,18 +106,29 @@ interface AuthState {
 
 const MAINTENANCE_STORAGE_KEY = "@maintenance_message";
 
-const syncDeviceRegistration = async (announceLogin = false) => {
+const syncDeviceRegistration = async (
+  announceLogin = false,
+  authToken?: string
+) => {
   const deviceId = await getDeviceId();
   const pushRegistration = await registerForPushNotificationsAsync().catch(
     () => null
   );
 
-  await api.post("/notifications/device/register", {
-    deviceId,
-    token: pushRegistration?.token || deviceId,
-    platform: pushRegistration?.platform || "unknown",
-    announceLogin,
-  });
+  // Pass the token explicitly when provided (e.g. immediately after login before
+  // SecureStore propagates the newly-written token back to the interceptor)
+  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+  await api.post(
+    "/notifications/device/register",
+    {
+      deviceId,
+      token: pushRegistration?.token || deviceId,
+      platform: pushRegistration?.platform || "unknown",
+      announceLogin,
+    },
+    { headers }
+  );
 };
 
 const unregisterDeviceRegistration = async () => {
@@ -216,7 +227,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Save credentials for offline login
       await saveOfflineCredentials(syncedUser._id, data.email, data.password);
 
-      await syncDeviceRegistration(false).catch((registrationError) => {
+      await syncDeviceRegistration(false, token).catch((registrationError) => {
         console.warn("Device registration failed:", registrationError);
       });
 
@@ -293,7 +304,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Save credentials for offline login
       await saveOfflineCredentials(syncedUser._id, data.email, data.password);
 
-      await syncDeviceRegistration(true).catch((registrationError) => {
+      await syncDeviceRegistration(true, token).catch((registrationError) => {
         console.warn("Device registration failed:", registrationError);
       });
 
@@ -377,12 +388,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
-      const message =
-        error.response?.data?.message ||
-        error.response?.data?.error?.message ||
-        error.message ||
-        "Invalid email or password.";
-      showApiError(error, "Invalid email or password.");
+      const { message } = showApiError(error, "Invalid email or password.");
       set({ error: message, isLoading: false });
       throw new Error(message);
     }

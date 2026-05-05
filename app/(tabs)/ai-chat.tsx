@@ -1,7 +1,7 @@
 import { T, useTranslation } from "@/hooks/use-translation";
 import { useChatStore } from "@/store/chat-store";
 import { useSyncStore } from "@/store/sync-store";
-import { AppScreenHeader } from "@/components/ui";
+import { AppLoader, AppScreenHeader } from "@/components/ui";
 import { Href, router } from "expo-router";
 import {
   ArrowDownCircle,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react-native";
 import { useEffect } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -232,7 +231,7 @@ export default function AIChatHomeScreen() {
               {isOnline && isLoading ? (
                 <View className="rounded-2xl border border-gray-100 bg-white px-4 py-5">
                   <View className="flex-row items-center">
-                    <ActivityIndicator size="small" color="#1447e6" />
+                    <AppLoader size="sm" color="#1447e6" />
                     <Text className="ml-3 text-sm text-gray-500">
                       <T>Loading conversations...</T>
                     </Text>
@@ -344,7 +343,7 @@ export default function AIChatHomeScreen() {
                     className="h-10 w-10 items-center justify-center rounded-full bg-red-50"
                   >
                     {deletingConversationId === item.id ? (
-                      <ActivityIndicator size="small" color="#dc2626" />
+                      <AppLoader size="sm" color="#dc2626" />
                     ) : (
                       <Trash2 size={16} color="#dc2626" />
                     )}

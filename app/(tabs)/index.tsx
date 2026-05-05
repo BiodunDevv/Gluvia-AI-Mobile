@@ -1,14 +1,15 @@
 import { LogGlucoseModal } from "@/components/modals";
-import { RecentMealsCard, TodayStatsCard } from "@/components/ui";
+import { AppLoader, RecentMealsCard, TodayStatsCard } from "@/components/ui";
+import { getTodaysMeals, type MealHistoryEntry } from "@/lib/offline-db";
 import { T, useTranslation } from "@/hooks/use-translation";
 import { getMissingProfileFields } from "@/lib/profile-completion";
 import { translateDynamicText } from "@/lib/translator";
 import { useAuthStore } from "@/store/auth-store";
 import { useNotificationStore } from "@/store/notification-store";
 import {
+  useAggregationSnapshot,
   useGlucoseStats,
-  useLastGlucoseValue,
-  useMealStats,
+  useNetworkOffline,
   useSyncStore,
 } from "@/store/sync-store";
 import { Href, router, useFocusEffect } from "expo-router";
@@ -20,6 +21,7 @@ import {
   Bot,
   Droplets,
   Lightbulb,
+  ScrollText,
   Moon,
   Plus,
   Sun,
@@ -28,7 +30,6 @@ import {
   TrendingUp,
   Utensils,
   WifiOff,
-  Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -271,7 +272,16 @@ function SmartDailyTip({
       textColor: "text-emerald-800",
       iconColor: "#10b981",
     };
-  }, [hour, isOffline, lastGlucose, mealsCount, missingFields.length, unreadCount, user?.profile?.incomeBracket]);
+  }, [
+    hour,
+    isOffline,
+    lastGlucose,
+    mealsCount,
+    missingFields.length,
+    t,
+    unreadCount,
+    user?.profile?.incomeBracket,
+  ]);
 
   const tip = useMemo(() => getTip(), [getTip]);
   const TipIcon = tip.icon;
@@ -321,57 +331,118 @@ function SmartDailyTip({
   );
 }
 
+function formatLocalDayLabel(dateString: string) {
+  const date = new Date(dateString);
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const key = date.toDateString();
+
+  if (key === today) return "Today";
+  if (key === yesterday) return "Yesterday";
+
+  return date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function HomeScreen() {
   const { t, language } = useTranslation();
   const {
     user,
     getProfile,
     isLoading,
-    isOffline,
     maintenanceMessage,
     dismissMaintenance,
   } = useAuthStore();
   const {
     getAggregations,
     isFetchingAggregations,
-    lastGlucoseReading,
+    aggregationsLoadedOnce,
+    aggregationsInvalidatedAt,
     mealLogs,
   } = useSyncStore();
+  const isOnline = useSyncStore((state) => state.isOnline);
   const { meta, fetchNotifications } = useNotificationStore();
-  const lastGlucose = useLastGlucoseValue();
   const glucoseStats = useGlucoseStats();
-  const mealStats = useMealStats();
+  const isNetworkOffline = useNetworkOffline();
   const [showGlucoseModal, setShowGlucoseModal] = useState(false);
   const [translatedMaintenanceMessage, setTranslatedMaintenanceMessage] =
     useState<string | null>(null);
+  const [todaysMealsFromHistory, setTodaysMealsFromHistory] = useState<
+    MealHistoryEntry[]
+  >([]);
 
-  const loadDashboard = useCallback(async () => {
+  const homeFeedFilters = useMemo(
+    () => ({
+      page: 1,
+      limit: 200,
+    }),
+    []
+  );
+  const homeFeedSnapshot = useAggregationSnapshot(homeFeedFilters);
+
+  const loadDashboard = useCallback(async (force = false) => {
     await getProfile();
     await fetchNotifications();
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    await getAggregations({
-      from: today.toISOString(),
-      to: new Date().toISOString(),
+    await getAggregations(homeFeedFilters, {
+      force: isOnline ? true : force,
+      ttlMs: 120000,
     });
-  }, [fetchNotifications, getAggregations, getProfile]);
+  }, [
+    fetchNotifications,
+    getAggregations,
+    getProfile,
+    homeFeedFilters,
+    isOnline,
+  ]);
+
+  const loadTodaysMealsFromHistory = useCallback(async () => {
+    if (!user?._id) {
+      setTodaysMealsFromHistory([]);
+      return;
+    }
+
+    try {
+      const meals = await getTodaysMeals(user._id);
+      setTodaysMealsFromHistory(meals);
+    } catch (error) {
+      console.error("Failed to load today's meals from local history:", error);
+    }
+  }, [user?._id]);
 
   useEffect(() => {
     loadDashboard().catch(() => {});
   }, [loadDashboard]);
 
+  useEffect(() => {
+    loadTodaysMealsFromHistory().catch(() => {});
+  }, [loadTodaysMealsFromHistory]);
+
   useFocusEffect(
     useCallback(() => {
-      loadDashboard().catch(() => {});
-    }, [loadDashboard])
+      const needsRefresh =
+        !homeFeedSnapshot ||
+        homeFeedSnapshot.fetchedAt < aggregationsInvalidatedAt;
+
+      if (needsRefresh) {
+        loadDashboard().catch(() => {});
+      }
+      loadTodaysMealsFromHistory().catch(() => {});
+    }, [
+      aggregationsInvalidatedAt,
+      homeFeedSnapshot,
+      loadDashboard,
+      loadTodaysMealsFromHistory,
+    ])
   );
 
   useEffect(() => {
     let cancelled = false;
 
     const translateMaintenance = async () => {
-      if (!maintenanceMessage || isOffline || language === "english") {
+      if (!maintenanceMessage || !isOnline || language === "english") {
         setTranslatedMaintenanceMessage(null);
         return;
       }
@@ -395,7 +466,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isOffline, language, maintenanceMessage]);
+  }, [isOnline, language, maintenanceMessage]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -478,24 +549,87 @@ export default function HomeScreen() {
     },
   ];
 
-  const todayMeals = mealLogs.filter((log) => {
-    const logDate = new Date(log.timestamp);
-    const today = new Date();
-    return logDate.toDateString() === today.toDateString();
-  });
+  const todayMeals = useMemo(() => {
+    const snapshotMeals = [
+      ...(homeFeedSnapshot?.mealLogs || []),
+      ...mealLogs,
+    ].filter(
+      (meal, index, array) =>
+        array.findIndex(
+          (candidate) =>
+            (candidate._id || candidate.clientGeneratedId) ===
+            (meal._id || meal.clientGeneratedId)
+        ) === index
+    );
+    const normalizedHistoryMeals = todaysMealsFromHistory.map((meal) => ({
+      _id: `history-${meal.id}`,
+      userId: user?._id || "",
+      mealType: meal.mealType,
+      entries: (meal.foodIds || []).map((foodId, index) => ({
+        foodId: {
+          _id: typeof foodId === "string" ? foodId : `history-food-${index}`,
+          localName:
+            typeof foodId === "string" ? foodId.replace(/_/g, " ") : "Meal item",
+          category: "Food",
+        },
+        portionName: "Logged food",
+        portionSize: "Logged food",
+        grams: 0,
+        quantity: 1,
+        carbs_g: 0,
+      })),
+      calculatedTotals: {
+        calories: meal.totalCalories || 0,
+        carbs: meal.totalCarbs || 0,
+        protein: meal.totalProtein || 0,
+        fibre: 0,
+      },
+      timestamp: meal.createdAt,
+      clientGeneratedId: `history-${meal.id}`,
+      notes: meal.notes,
+      createdAt: meal.createdAt,
+      updatedAt: meal.createdAt,
+    }));
 
-  // Use calculatedTotals from API response
-  const totalCaloriesToday = todayMeals.reduce(
-    (sum, meal) => sum + (meal.calculatedTotals?.calories || 0),
-    0
-  );
-  const totalCarbsToday = todayMeals.reduce(
-    (sum, meal) => sum + (meal.calculatedTotals?.carbs || 0),
-    0
-  );
+    const allMeals = [...snapshotMeals, ...normalizedHistoryMeals].filter(
+      (meal, index, array) =>
+        array.findIndex(
+          (candidate) =>
+            (candidate._id || candidate.clientGeneratedId) ===
+            (meal._id || meal.clientGeneratedId)
+        ) === index
+    );
+
+    return allMeals
+      .filter((meal) => {
+        return formatLocalDayLabel(meal.timestamp) === "Today";
+      })
+      .sort(
+        (left, right) =>
+          new Date(right.timestamp || right.createdAt).getTime() -
+          new Date(left.timestamp || left.createdAt).getTime()
+      );
+  }, [homeFeedSnapshot?.mealLogs, mealLogs, todaysMealsFromHistory, user?._id]);
+
+  const totalCaloriesToday =
+    todayMeals.reduce(
+      (sum, meal) => sum + (meal.calculatedTotals?.calories || 0),
+      0
+    );
+  const totalCarbsToday =
+    todayMeals.reduce(
+      (sum, meal) => sum + (meal.calculatedTotals?.carbs || 0),
+      0
+    );
+  const latestGlucoseReading = homeFeedSnapshot?.lastGlucoseReading;
+  const latestGlucoseStats = homeFeedSnapshot?.glucoseStats || glucoseStats;
+  const isInitialDashboardLoad =
+    (isLoading || isFetchingAggregations) &&
+    !homeFeedSnapshot &&
+    !aggregationsLoadedOnce;
 
   const recentFoods = useMemo(() => {
-    const sortedMeals = [...mealLogs].sort(
+    const sortedMeals = [...todayMeals].sort(
       (left, right) =>
         new Date(right.timestamp || right.createdAt).getTime() -
         new Date(left.timestamp || left.createdAt).getTime()
@@ -528,10 +662,10 @@ export default function HomeScreen() {
     }
 
     return Array.from(uniqueFoods.values());
-  }, [mealLogs]);
+  }, [todayMeals]);
 
   const handleRefresh = async () => {
-    await loadDashboard();
+    await Promise.all([loadDashboard(true), loadTodaysMealsFromHistory()]);
   };
 
   return (
@@ -581,6 +715,16 @@ export default function HomeScreen() {
 
             <View className="flex-row items-center">
               <TouchableOpacity
+                onPress={() => router.push("/meal-history" as Href)}
+                activeOpacity={0.7}
+                className="mr-3"
+              >
+                <View className="h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white">
+                  <ScrollText size={20} color="#1447e6" />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => router.push("/notifications" as Href)}
                 activeOpacity={0.7}
                 className="mr-3"
@@ -616,8 +760,8 @@ export default function HomeScreen() {
         {/* Smart Daily Tip - Right After Header */}
         <SmartDailyTip
           user={user}
-          isOffline={isOffline}
-          lastGlucose={lastGlucoseReading?.valueMgDl}
+          isOffline={isNetworkOffline}
+          lastGlucose={latestGlucoseReading?.valueMgDl}
           mealsCount={todayMeals.length}
           unreadCount={meta?.unreadCount || 0}
           animationDelay={50}
@@ -625,46 +769,16 @@ export default function HomeScreen() {
 
         {/* Glucose Status Card - Main Focus */}
         <Animated.View entering={FadeInUp.delay(150)} className="px-6 mb-6">
-          {isFetchingAggregations && !lastGlucoseReading ? (
-            /* Skeleton Loading State */
+          {isInitialDashboardLoad ? (
             <View className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
-              <View className="p-5">
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="h-4 w-36 bg-gray-200 rounded-full animate-pulse" />
-                  <View className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
-                </View>
-
-                <View className="flex-row items-end mb-2">
-                  <View className="h-12 w-24 bg-gray-200 rounded-lg animate-pulse" />
-                  <View className="h-5 w-12 bg-gray-200 rounded ml-2 mb-2 animate-pulse" />
-                </View>
-
-                <View className="h-3 w-44 bg-gray-200 rounded-full mb-4 animate-pulse" />
-
-                {/* Mini Stats Row Skeleton */}
-                <View className="flex-row bg-gray-50 rounded-2xl p-3">
-                  <View className="flex-1 items-center">
-                    <View className="h-6 w-10 bg-gray-200 rounded mb-1 animate-pulse" />
-                    <View className="h-3 w-12 bg-gray-200 rounded-full animate-pulse" />
-                  </View>
-                  <View className="w-px bg-gray-200" />
-                  <View className="flex-1 items-center">
-                    <View className="h-6 w-10 bg-gray-200 rounded mb-1 animate-pulse" />
-                    <View className="h-3 w-12 bg-gray-200 rounded-full animate-pulse" />
-                  </View>
-                  <View className="w-px bg-gray-200" />
-                  <View className="flex-1 items-center">
-                    <View className="h-6 w-10 bg-gray-200 rounded mb-1 animate-pulse" />
-                    <View className="h-3 w-12 bg-gray-200 rounded-full animate-pulse" />
-                  </View>
-                </View>
-              </View>
-
-              <View className="flex-row items-center justify-center py-4 bg-gray-50 border-t border-gray-100">
-                <View className="h-5 w-32 bg-gray-200 rounded-full animate-pulse" />
+              <View className="items-center justify-center p-8">
+                <AppLoader size="lg" color="#1447e6" />
+                <Text className="mt-4 text-sm text-gray-500">
+                  <T>Loading your latest reading...</T>
+                </Text>
               </View>
             </View>
-          ) : lastGlucoseReading ? (
+          ) : latestGlucoseReading ? (
             <View className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
               <View className="p-5">
                 <View className="flex-row items-center justify-between mb-4">
@@ -673,38 +787,38 @@ export default function HomeScreen() {
                   </Text>
                   <View
                     className={`px-2 py-1 rounded-full ${
-                      getGlucoseStatus(lastGlucoseReading.valueMgDl).bg
+                      getGlucoseStatus(latestGlucoseReading.valueMgDl).bg
                     }`}
                   >
                     <Text
                       className="text-xs font-semibold"
                       style={{
-                        color: getGlucoseStatus(lastGlucoseReading.valueMgDl)
+                        color: getGlucoseStatus(latestGlucoseReading.valueMgDl)
                           .color,
                       }}
                     >
-                      {getGlucoseStatus(lastGlucoseReading.valueMgDl).label}
+                      {getGlucoseStatus(latestGlucoseReading.valueMgDl).label}
                     </Text>
                   </View>
                 </View>
 
                 <View className="flex-row items-end mb-2">
                   <Text className="text-5xl font-bold text-gray-900">
-                    {lastGlucoseReading.valueMgDl}
+                    {latestGlucoseReading.valueMgDl}
                   </Text>
                   <Text className="text-lg text-gray-400 ml-2 mb-2">mg/dL</Text>
                 </View>
 
                 <Text className="text-xs text-gray-400 mb-4">
-                  {new Date(lastGlucoseReading.timestamp).toLocaleString([], {
+                  {new Date(latestGlucoseReading.timestamp).toLocaleString([], {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
-                  {lastGlucoseReading.type && (
-                    <Text> • {lastGlucoseReading.type.replace(/_/g, " ")}</Text>
+                  {latestGlucoseReading.type && (
+                    <Text> • {latestGlucoseReading.type.replace(/_/g, " ")}</Text>
                   )}
                 </Text>
 
@@ -712,17 +826,17 @@ export default function HomeScreen() {
                 <View className="flex-row bg-gray-50 rounded-2xl p-3">
                   <View className="flex-1 items-center">
                     <Text className="text-lg font-bold text-gray-800">
-                      {glucoseStats?.average || "--"}
+                      {latestGlucoseStats?.average || "--"}
                     </Text>
                     <Text className="text-xs text-gray-500">
-                      <T>Avg (7d)</T>
+                      <T>Recent Avg</T>
                     </Text>
                   </View>
                   <View className="w-px bg-gray-200" />
                   <View className="flex-1 items-center">
                     <Text className="text-lg font-bold text-emerald-600">
-                      {glucoseStats?.inRangePercent
-                        ? `${glucoseStats.inRangePercent}%`
+                      {latestGlucoseStats?.inRangePercent !== undefined
+                        ? `${latestGlucoseStats.inRangePercent}%`
                         : "--"}
                     </Text>
                     <Text className="text-xs text-gray-500">
@@ -732,10 +846,10 @@ export default function HomeScreen() {
                   <View className="w-px bg-gray-200" />
                   <View className="flex-1 items-center">
                     <Text className="text-lg font-bold text-gray-800">
-                      {glucoseStats?.count || "--"}
+                      {latestGlucoseStats?.count || "--"}
                     </Text>
                     <Text className="text-xs text-gray-500">
-                      <T>Readings</T>
+                      <T>Recent Readings</T>
                     </Text>
                   </View>
                 </View>
@@ -798,7 +912,7 @@ export default function HomeScreen() {
           totalCalories={totalCaloriesToday}
           totalCarbs={totalCarbsToday}
           mealsCount={todayMeals.length}
-          isLoading={isFetchingAggregations && todayMeals.length === 0}
+          isLoading={isInitialDashboardLoad}
           showLogMealButton={true}
           animationDelay={200}
         />
@@ -905,13 +1019,7 @@ export default function HomeScreen() {
         visible={showGlucoseModal}
         onClose={() => setShowGlucoseModal(false)}
         onSuccess={() => {
-          // Refresh data after logging glucose
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          getAggregations({
-            from: today.toISOString(),
-            to: new Date().toISOString(),
-          });
+          loadDashboard(true).catch(() => {});
         }}
       />
     </SafeAreaView>

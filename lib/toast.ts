@@ -39,10 +39,18 @@ export const showApiError = (error: any, fallbackMessage?: string) => {
       title = "Invalid Request";
       message = apiMessage || "Please check your input and try again.";
       break;
-    case 401:
-      title = "Invalid Credentials";
-      message = apiMessage || "Please check your email and password.";
+    case 401: {
+      const errorCode = error.response?.data?.error?.code;
+      title =
+        errorCode === "TOKEN_REVOKED" || errorCode === "INVALID_TOKEN"
+          ? "Session Expired"
+          : "Invalid Credentials";
+      message =
+        errorCode === "TOKEN_REVOKED" || errorCode === "INVALID_TOKEN"
+          ? "Your session has expired. Please log in again."
+          : apiMessage || "Please check your email and password.";
       break;
+    }
     case 403:
       title = "Access Denied";
       message = apiMessage || "You don't have permission to do this.";

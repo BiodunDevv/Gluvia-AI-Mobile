@@ -1,4 +1,5 @@
 import { T, useTranslation } from "@/hooks/use-translation";
+import { AppLoader } from "@/components/ui";
 import { translateDynamicText } from "@/lib/translator";
 import { useNotificationStore } from "@/store/notification-store";
 import { useSyncStore } from "@/store/sync-store";
@@ -13,7 +14,6 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -144,7 +144,7 @@ export default function NotificationsPage() {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#1447e6" />
+          <AppLoader color="#1447e6" />
         </View>
       ) : (
         <ScrollView
@@ -256,7 +256,7 @@ export default function NotificationsPage() {
             >
               <View className="flex-row items-center justify-center">
                 {isLoadingMore ? (
-                  <ActivityIndicator size="small" color="#1447e6" />
+                  <AppLoader size="sm" color="#1447e6" />
                 ) : null}
                 <Text className="ml-2 text-sm font-semibold text-gray-700">
                   {isLoadingMore ? (

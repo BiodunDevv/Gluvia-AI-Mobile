@@ -115,16 +115,14 @@ const SYMPTOM_OPTIONS: Array<{
   },
 ];
 
-// Glucose level interpretation
 function getGlucoseInterpretation(value: number, type: GlucoseReadingType) {
-  // Target ranges based on ADA guidelines
   const ranges = {
-    fasting: { low: 70, normal: 100, elevated: 126 },
-    before_meal: { low: 70, normal: 100, elevated: 130 },
-    after_meal: { low: 70, normal: 140, elevated: 180 },
-    "2hr_post_meal": { low: 70, normal: 140, elevated: 180 },
-    bedtime: { low: 90, normal: 150, elevated: 180 },
-    random: { low: 70, normal: 140, elevated: 200 },
+    fasting: { low: 70, normal: 100 },
+    before_meal: { low: 70, normal: 100 },
+    after_meal: { low: 70, normal: 140 },
+    "2hr_post_meal": { low: 70, normal: 140 },
+    bedtime: { low: 90, normal: 150 },
+    random: { low: 70, normal: 140 },
   };
 
   const range = ranges[type];
@@ -144,14 +142,6 @@ function getGlucoseInterpretation(value: number, type: GlucoseReadingType) {
       color: "#10b981",
       bgColor: "bg-green-50",
       message: "Great! Your glucose is within the target range.",
-    };
-  } else if (value <= range.elevated) {
-    return {
-      status: "elevated",
-      label: "Elevated",
-      color: "#f59e0b",
-      bgColor: "bg-amber-50",
-      message: "Slightly elevated. Monitor and adjust as needed.",
     };
   } else {
     return {
@@ -250,7 +240,7 @@ export function LogGlucoseModal({
           mealLogId: linkedMealId,
           symptoms: symptoms.length > 0 ? symptoms : ["none"],
         },
-        user._id
+        user._id,
       );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import {
-  ActivityIndicator,
   Text,
   TouchableOpacity,
   TouchableOpacityProps,
   View,
 } from "react-native";
+import { AppLoader } from "./app-loader";
 
 interface ButtonProps extends TouchableOpacityProps {
   children: ReactNode;
@@ -69,11 +69,11 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator
+        <AppLoader
           color={
             variant === "primary" || variant === "danger" ? "#fff" : "#374151"
           }
-          size="small"
+          size="sm"
         />
       ) : (
         <View className="flex-row items-center">

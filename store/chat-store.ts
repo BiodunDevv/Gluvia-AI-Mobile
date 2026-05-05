@@ -614,7 +614,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             content: "",
             status: "sending",
             metadata: {
-              source: "groq",
+              source: "azure",
               safeFallbackUsed: false,
               chunks: [],
               streaming: true,

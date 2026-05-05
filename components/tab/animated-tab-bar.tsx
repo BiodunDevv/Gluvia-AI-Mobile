@@ -42,8 +42,8 @@ export function AnimatedTabBar({
         unfocused: "restaurant-outline",
       },
       "ai-chat": {
-        focused: "sparkles",
-        unfocused: "sparkles-outline",
+        focused: "logo-reddit",
+        unfocused: "logo-reddit",
       },
       foods: {
         focused: "nutrition",

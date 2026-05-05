@@ -1,400 +1,766 @@
-/**
- * Meal History Screen
- *
- * Displays all logged meals with filtering, grouping by date,
- * and detailed nutrition information.
- */
-
+import { AppLoader } from "@/components/ui";
+import { api } from "@/lib/api";
+import { getPendingMealLogs } from "@/lib/offline-db";
+import { T } from "@/hooks/use-translation";
+import { useAuthStore } from "@/store/auth-store";
 import { useSyncStore } from "@/store/sync-store";
-import { Ionicons } from "@expo/vector-icons";
+import type {
+  AggregatedGlucoseLog,
+  AggregatedMealLog,
+} from "@/store/sync-store";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import {
+  Activity,
   ArrowLeft,
   Calendar,
-  ChevronDown,
   Coffee,
   Cookie,
-  Filter,
-  Flame,
+  Droplets,
   Moon,
+  RefreshCw,
+  ScrollText,
   Sun,
-  Zap,
+  TrendingDown,
+  TrendingUp,
+  Utensils,
+  WifiOff,
 } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const handleBack = () => {
-  if (router.canGoBack()) {
-    router.back();
-  } else {
-    router.dismiss();
-  }
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type LogsTab = "meals" | "glucose";
+type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
+type MealGroup = {
+  key: string;
+  label: string;
+  meals: AggregatedMealLog[];
+  totalCalories: number;
+  totalCarbs: number;
 };
 
-// Meal type configuration
-const MEAL_ICONS = {
+type GlucoseGroup = {
+  key: string;
+  label: string;
+  readings: AggregatedGlucoseLog[];
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const MEAL_ICONS: Record<string, { icon: any; color: string; bgColor: string }> = {
   breakfast: { icon: Coffee, color: "#f59e0b", bgColor: "#fef3c7" },
   lunch: { icon: Sun, color: "#10b981", bgColor: "#d1fae5" },
   dinner: { icon: Moon, color: "#6366f1", bgColor: "#e0e7ff" },
   snack: { icon: Cookie, color: "#ec4899", bgColor: "#fce7f3" },
 };
 
-type MealType = "breakfast" | "lunch" | "dinner" | "snack";
-type FilterType = "all" | MealType;
-
-interface GroupedMeals {
-  date: string;
-  dateLabel: string;
-  meals: any[];
-  totalCalories: number;
-  totalCarbs: number;
+function formatDayLabel(dateString: string) {
+  const date = new Date(dateString);
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const key = date.toDateString();
+  if (key === today) return "Today";
+  if (key === yesterday) return "Yesterday";
+  return date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
-export default function MealHistoryScreen() {
-  const { mealLogs, getAggregations, isFetchingAggregations } = useSyncStore();
-  const [filter, setFilter] = useState<FilterType>("all");
-  const [showFilters, setShowFilters] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+function getGlucoseStatus(value: number) {
+  if (value < 70)
+    return { label: "Low", textColor: "#dc2626", bgColor: "#fef2f2", Icon: TrendingDown };
+  if (value <= 140)
+    return { label: "In Range", textColor: "#059669", bgColor: "#ecfdf5", Icon: Activity };
+  return { label: "High", textColor: "#d97706", bgColor: "#fffbeb", Icon: TrendingUp };
+}
 
-  // Fetch aggregations on focus
-  useFocusEffect(
-    useCallback(() => {
-      getAggregations({ limit: 100 }).catch(() => {});
-    }, [getAggregations]),
+// ─── Main screen ─────────────────────────────────────────────────────────────
+
+export default function UserLogsScreen() {
+  const user = useAuthStore((s) => s.user);
+  const isOnline = useSyncStore((s) => s.isOnline);
+
+  // Local state — data fetched directly from endpoint
+  const [mealLogs, setMealLogs] = useState<AggregatedMealLog[]>([]);
+  const [glucoseLogs, setGlucoseLogs] = useState<AggregatedGlucoseLog[]>([]);
+  const [activeTab, setActiveTab] = useState<LogsTab>("meals");
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Prevent concurrent fetches
+  const fetchingRef = useRef(false);
+
+  const fetchLogs = useCallback(
+    async (silent = false) => {
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+
+      if (!silent) setIsLoading(true);
+      setFetchError(null);
+
+      if (!isOnline) {
+        // Offline — fall back to what the sync-store has in memory from last fetch
+        const snap = useSyncStore.getState();
+        const pendingMeals = user?._id
+          ? await getPendingMealLogs(user._id).catch(() => [])
+          : [];
+        const pendingAggregated = pendingMeals.map((meal) => ({
+          _id: meal.clientGeneratedId,
+          userId: meal.userId,
+          mealType: meal.mealType as AggregatedMealLog["mealType"],
+          entries: meal.foods.map((food) => ({
+            foodId: {
+              _id: food.foodId,
+              localName: food.localName || food.canonicalName || "Food item",
+              category: food.category || "Food",
+            },
+            portionName: food.portionSize,
+            portionSize: food.portionSize,
+            grams: 0,
+            quantity: food.quantity,
+            carbs_g: 0,
+          })),
+          calculatedTotals: {
+            calories: 0,
+            carbs: 0,
+            protein: 0,
+            fibre: 0,
+          },
+          timestamp: meal.timestamp,
+          clientGeneratedId: meal.clientGeneratedId,
+          notes: meal.notes,
+          createdAt: meal.createdAt,
+          updatedAt: meal.createdAt,
+        }));
+        setMealLogs([...pendingAggregated, ...snap.mealLogs]);
+        setGlucoseLogs(snap.glucoseLogs);
+        setIsLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        const response = await api.get("/sync/aggregations", {
+          params: { page: 1, limit: 200 },
+        });
+        const resultData = response.data?.data || response.data;
+        const meals: AggregatedMealLog[] = resultData?.mealLogs || [];
+        const glucose: AggregatedGlucoseLog[] = resultData?.glucoseLogs || [];
+
+        const pendingMeals = user?._id
+          ? await getPendingMealLogs(user._id).catch(() => [])
+          : [];
+        const pendingAggregated = pendingMeals.map((meal) => ({
+          _id: meal.clientGeneratedId,
+          userId: meal.userId,
+          mealType: meal.mealType as AggregatedMealLog["mealType"],
+          entries: meal.foods.map((food) => ({
+            foodId: {
+              _id: food.foodId,
+              localName: food.localName || food.canonicalName || "Food item",
+              category: food.category || "Food",
+            },
+            portionName: food.portionSize,
+            portionSize: food.portionSize,
+            grams: 0,
+            quantity: food.quantity,
+            carbs_g: 0,
+          })),
+          calculatedTotals: {
+            calories: 0,
+            carbs: 0,
+            protein: 0,
+            fibre: 0,
+          },
+          timestamp: meal.timestamp,
+          clientGeneratedId: meal.clientGeneratedId,
+          notes: meal.notes,
+          createdAt: meal.createdAt,
+          updatedAt: meal.createdAt,
+        }));
+
+        setMealLogs(
+          [...pendingAggregated, ...meals].sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+        );
+        setGlucoseLogs(
+          glucose.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
+        );
+
+        // Keep sync-store in sync so other screens (dashboard) benefit
+        useSyncStore.setState({
+          mealLogs: meals,
+          glucoseLogs: glucose,
+          aggregationsLoadedOnce: true,
+        });
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.error?.message ||
+          err?.message ||
+          "Failed to load logs";
+        setFetchError(msg);
+      } finally {
+        setIsLoading(false);
+        fetchingRef.current = false;
+      }
+    },
+    [isOnline, user?._id]
   );
 
-  // Group meals by date and apply filter
-  const groupedMeals = useMemo(() => {
-    const filtered =
-      filter === "all"
-        ? mealLogs
-        : mealLogs.filter((meal) => meal.mealType === filter);
-
-    const groups: Record<string, GroupedMeals> = {};
-
-    filtered.forEach((meal) => {
-      const date = new Date(meal.timestamp);
-      const dateKey = date.toDateString();
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-      let dateLabel = date.toLocaleDateString([], {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      });
-
-      if (dateKey === today) {
-        dateLabel = "Today";
-      } else if (dateKey === yesterday) {
-        dateLabel = "Yesterday";
-      }
-
-      if (!groups[dateKey]) {
-        groups[dateKey] = {
-          date: dateKey,
-          dateLabel,
-          meals: [],
-          totalCalories: 0,
-          totalCarbs: 0,
-        };
-      }
-
-      groups[dateKey].meals.push(meal);
-      groups[dateKey].totalCalories += meal.calculatedTotals?.calories || 0;
-      groups[dateKey].totalCarbs += meal.calculatedTotals?.carbs || 0;
-    });
-
-    // Sort by date (newest first)
-    return Object.values(groups).sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-  }, [mealLogs, filter]);
+  // Fetch fresh from endpoint every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchLogs();
+    }, [fetchLogs])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await getAggregations({ limit: 100 });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    await fetchLogs(true).catch(() => {});
     setRefreshing(false);
   };
 
-  const handleFilterSelect = (newFilter: FilterType) => {
-    Haptics.selectionAsync();
-    setFilter(newFilter);
-    setShowFilters(false);
-  };
+  // ─── Grouping ─────────────────────────────────────────────────────────────
 
-  const totalStats = useMemo(() => {
-    return mealLogs.reduce(
-      (acc, meal) => ({
-        meals: acc.meals + 1,
-        calories: acc.calories + (meal.calculatedTotals?.calories || 0),
-        carbs: acc.carbs + (meal.calculatedTotals?.carbs || 0),
-      }),
-      { meals: 0, calories: 0, carbs: 0 },
+  const groupedMeals = useMemo(() => {
+    const groups = new Map<string, MealGroup>();
+    for (const meal of mealLogs) {
+      const key = new Date(meal.timestamp).toDateString();
+      const existing = groups.get(key) || {
+        key,
+        label: formatDayLabel(meal.timestamp),
+        meals: [],
+        totalCalories: 0,
+        totalCarbs: 0,
+      };
+      existing.meals.push(meal);
+      existing.totalCalories += meal.calculatedTotals?.calories || 0;
+      existing.totalCarbs += meal.calculatedTotals?.carbs || 0;
+      groups.set(key, existing);
+    }
+    return [...groups.values()].sort(
+      (a, b) => new Date(b.key).getTime() - new Date(a.key).getTime()
     );
   }, [mealLogs]);
 
-  const renderMealItem = ({
-    item: meal,
-    index,
-  }: {
-    item: any;
-    index: number;
-  }) => {
-    const mealConfig =
-      MEAL_ICONS[meal.mealType as MealType] || MEAL_ICONS.snack;
-    const Icon = mealConfig.icon;
+  const groupedGlucose = useMemo(() => {
+    const groups = new Map<string, GlucoseGroup>();
+    for (const reading of glucoseLogs) {
+      const key = new Date(reading.timestamp).toDateString();
+      const existing = groups.get(key) || {
+        key,
+        label: formatDayLabel(reading.timestamp),
+        readings: [],
+      };
+      existing.readings.push(reading);
+      groups.set(key, existing);
+    }
+    return [...groups.values()].sort(
+      (a, b) => new Date(b.key).getTime() - new Date(a.key).getTime()
+    );
+  }, [glucoseLogs]);
 
+  const totals = useMemo(() => {
+    const mealCalories = mealLogs.reduce(
+      (s, m) => s + (m.calculatedTotals?.calories || 0),
+      0
+    );
+    const mealCarbs = mealLogs.reduce(
+      (s, m) => s + (m.calculatedTotals?.carbs || 0),
+      0
+    );
+    return {
+      meals: mealLogs.length,
+      mealCalories,
+      mealCarbs,
+      glucose: glucoseLogs.length,
+    };
+  }, [glucoseLogs, mealLogs]);
+
+  // ─── Render helpers ───────────────────────────────────────────────────────
+
+  const renderMealGroup = ({ item }: { item: MealGroup }) => {
     return (
-      <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
-        <Pressable
-          className="bg-white mx-4 mb-3 p-4 rounded-2xl border border-gray-100"
-          style={{
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 4,
-          }}
-        >
+      <View className="mb-5">
+        <View className="flex-row items-center justify-between px-4 py-2">
           <View className="flex-row items-center">
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center"
-              style={{ backgroundColor: mealConfig.bgColor }}
-            >
-              <Icon size={22} color={mealConfig.color} />
-            </View>
+            <Calendar size={15} color="#6b7280" />
+            <Text className="ml-2 text-sm font-semibold text-gray-800">
+              {item.label}
+            </Text>
+          </View>
+          <Text className="text-xs text-gray-400">
+            {Math.round(item.totalCalories)} cal · {Math.round(item.totalCarbs)}g carbs
+          </Text>
+        </View>
 
-            <View className="flex-1 ml-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="font-bold text-gray-900 capitalize text-base">
-                  {meal.mealType}
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  {new Date(meal.timestamp).toLocaleTimeString([], {
+        {item.meals.map((meal, index) => {
+          const cfg = MEAL_ICONS[meal.mealType as MealType] || MEAL_ICONS.snack;
+          const Icon = cfg.icon;
+
+          return (
+            <Animated.View
+              key={meal._id || meal.clientGeneratedId || `${item.key}-${index}`}
+              entering={FadeInDown.delay(index * 40).springify()}
+              className="mx-4 mb-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            >
+              <View className="flex-row items-start">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: cfg.bgColor }}
+                >
+                  <Icon size={22} color={cfg.color} />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  {/* Header row */}
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-base font-bold capitalize text-gray-900">
+                      {meal.mealType}
+                    </Text>
+                    <Text className="text-xs text-gray-400">
+                      {new Date(meal.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
+                  </View>
+
+                  {/* Food names summary */}
+                  {(meal.entries || []).length > 0 && (
+                    <Text
+                      className="mt-0.5 text-sm text-gray-500"
+                      numberOfLines={2}
+                    >
+                      {meal.entries
+                        .map((e) => e.foodId?.localName)
+                        .filter(Boolean)
+                        .join(", ") ||
+                        `${meal.entries.length} item${meal.entries.length !== 1 ? "s" : ""}`}
+                    </Text>
+                  )}
+
+                  {/* Macro pills */}
+                  <View className="mt-2 flex-row flex-wrap gap-x-3">
+                    <Text className="text-xs font-semibold text-primary">
+                      {Math.round(meal.calculatedTotals?.calories || 0)} kcal
+                    </Text>
+                    <Text className="text-xs text-gray-500">
+                      {Math.round(meal.calculatedTotals?.carbs || 0)}g carbs
+                    </Text>
+                    {(meal.calculatedTotals?.protein || 0) > 0 && (
+                      <Text className="text-xs text-gray-500">
+                        {Math.round(meal.calculatedTotals.protein)}g protein
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Per-item breakdown */}
+                  {(meal.entries || []).length > 0 && (
+                    <View className="mt-3 gap-1.5">
+                      {meal.entries.map((entry, ei) => {
+                        const name = entry.foodId?.localName;
+                        if (!name) return null;
+                        return (
+                          <View
+                            key={`${meal._id}-entry-${ei}`}
+                            className="flex-row items-center justify-between rounded-xl bg-gray-50 px-3 py-2"
+                          >
+                            <Text
+                              className="flex-1 pr-2 text-sm font-medium text-gray-800"
+                              numberOfLines={1}
+                            >
+                              {name}
+                            </Text>
+                            <View className="flex-row items-center gap-2">
+                              <Text className="text-xs text-gray-400">
+                                {entry.portionName ||
+                                  entry.portionSize ||
+                                  "1 serving"}
+                              </Text>
+                              <Text className="text-xs font-semibold text-gray-600">
+                                ×{entry.quantity || 1}
+                              </Text>
+                              {(entry.carbs_g || 0) > 0 && (
+                                <Text className="text-xs font-semibold text-primary">
+                                  {Math.round(entry.carbs_g)}g
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              </View>
+            </Animated.View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const renderGlucoseGroup = ({ item }: { item: GlucoseGroup }) => (
+    <View className="mb-5">
+      <View className="flex-row items-center justify-between px-4 py-2">
+        <View className="flex-row items-center">
+          <Calendar size={15} color="#6b7280" />
+          <Text className="ml-2 text-sm font-semibold text-gray-800">
+            {item.label}
+          </Text>
+        </View>
+        <Text className="text-xs text-gray-400">
+          {item.readings.length} reading{item.readings.length !== 1 ? "s" : ""}
+        </Text>
+      </View>
+
+      {item.readings.map((reading, index) => {
+        const status = getGlucoseStatus(reading.valueMgDl);
+        const StatusIcon = status.Icon;
+
+        return (
+          <Animated.View
+            key={reading._id || reading.clientGeneratedId || `${item.key}-${index}`}
+            entering={FadeInDown.delay(index * 40).springify()}
+            className="mx-4 mb-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+          >
+            <View className="flex-row items-start">
+              <View
+                className="h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: status.bgColor }}
+              >
+                <Droplets size={20} color={status.textColor} />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <View className="flex-row items-start justify-between">
+                  <View>
+                    <Text className="text-xl font-bold text-gray-900">
+                      {reading.valueMgDl}{" "}
+                      <Text className="text-sm font-medium text-gray-400">
+                        mg/dL
+                      </Text>
+                    </Text>
+                    <Text className="mt-0.5 text-sm capitalize text-gray-500">
+                      {(reading.type || "random").replace(/_/g, " ")}
+                    </Text>
+                  </View>
+
+                  <View
+                    className="flex-row items-center rounded-full px-2.5 py-1"
+                    style={{ backgroundColor: status.bgColor }}
+                  >
+                    <StatusIcon size={12} color={status.textColor} />
+                    <Text
+                      className="ml-1 text-xs font-bold"
+                      style={{ color: status.textColor }}
+                    >
+                      {status.label}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text className="mt-2 text-xs text-gray-400">
+                  {new Date(reading.timestamp).toLocaleString([], {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
                 </Text>
-              </View>
 
-              <View className="flex-row items-center mt-2">
-                <View className="flex-row items-center mr-4">
-                  <Flame size={14} color="#ef4444" />
-                  <Text className="text-sm text-gray-600 ml-1">
-                    {Math.round(meal.calculatedTotals?.calories || 0)} cal
+                {reading.symptoms && reading.symptoms.length > 0 && (
+                  <Text className="mt-2 text-xs text-gray-500">
+                    Symptoms: {reading.symptoms.join(", ")}
                   </Text>
-                </View>
-                <View className="flex-row items-center mr-4">
-                  <Zap size={14} color="#f59e0b" />
-                  <Text className="text-sm text-gray-600 ml-1">
-                    {Math.round(meal.calculatedTotals?.carbs || 0)}g carbs
-                  </Text>
-                </View>
-              </View>
+                )}
 
-              {/* Food items */}
-              {meal.entries && meal.entries.length > 0 && (
-                <View className="mt-2 flex-row flex-wrap">
-                  {meal.entries.slice(0, 3).map((entry: any, idx: number) => (
-                    <View
-                      key={idx}
-                      className="bg-gray-100 px-2 py-1 rounded-lg mr-1 mb-1"
-                    >
-                      <Text className="text-xs text-gray-600">
-                        {entry.foodId?.localName || "Unknown"}
-                      </Text>
-                    </View>
-                  ))}
-                  {meal.entries.length > 3 && (
-                    <View className="bg-gray-100 px-2 py-1 rounded-lg">
-                      <Text className="text-xs text-gray-500">
-                        +{meal.entries.length - 3} more
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
+                {reading.notes ? (
+                  <View className="mt-3 rounded-xl bg-gray-50 px-3 py-2">
+                    <Text className="text-xs leading-5 text-gray-600">
+                      {reading.notes}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </View>
-        </Pressable>
-      </Animated.View>
-    );
-  };
-
-  const renderDateGroup = ({ item: group }: { item: GroupedMeals }) => (
-    <View className="mb-4">
-      <View className="flex-row items-center justify-between px-4 py-3">
-        <View className="flex-row items-center">
-          <Calendar size={16} color="#6b7280" />
-          <Text className="text-sm font-semibold text-gray-700 ml-2">
-            {group.dateLabel}
-          </Text>
-        </View>
-        <View className="flex-row items-center bg-gray-100 px-3 py-1 rounded-full">
-          <Text className="text-xs text-gray-600">
-            {Math.round(group.totalCalories)} cal •{" "}
-            {Math.round(group.totalCarbs)}g carbs
-          </Text>
-        </View>
-      </View>
-      {group.meals.map((meal, index) => (
-        <View key={meal._id || meal.clientGeneratedId || `meal-${index}`}>
-          {renderMealItem({ item: meal, index })}
-        </View>
-      ))}
+          </Animated.View>
+        );
+      })}
     </View>
   );
 
-  const filterOptions: { label: string; value: FilterType; icon: any }[] = [
-    { label: "All Meals", value: "all", icon: null },
-    { label: "Breakfast", value: "breakfast", icon: Coffee },
-    { label: "Lunch", value: "lunch", icon: Sun },
-    { label: "Dinner", value: "dinner", icon: Moon },
-    { label: "Snack", value: "snack", icon: Cookie },
-  ];
+  // ─── Empty / error / offline states ──────────────────────────────────────
+
+  const activeMealData = activeTab === "meals" ? groupedMeals : [];
+  const activeGlucoseData = activeTab === "glucose" ? groupedGlucose : [];
+
+  const offlineBanner = !isOnline ? (
+    <View className="mx-4 mb-4 flex-row items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <WifiOff size={16} color="#b45309" />
+      <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
+        <T>You are offline. Showing the last cached data. Pull to refresh when back online.</T>
+      </Text>
+    </View>
+  ) : null;
+
+  const errorBanner = fetchError ? (
+    <View className="mx-4 mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <Text className="text-xs font-medium text-red-700">{fetchError}</Text>
+      <TouchableOpacity
+        onPress={() => fetchLogs()}
+        className="mt-2 flex-row items-center gap-1"
+      >
+        <RefreshCw size={13} color="#dc2626" />
+        <Text className="text-xs font-semibold text-red-600">
+          <T>Try again</T>
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
+
+  const emptyState = (
+    <View className="items-center px-6 py-20">
+      <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-gray-100">
+        {activeTab === "meals" ? (
+          <Utensils size={34} color="#9ca3af" />
+        ) : (
+          <Droplets size={34} color="#9ca3af" />
+        )}
+      </View>
+      <Text className="text-lg font-semibold text-gray-800">
+        <T>{activeTab === "meals" ? "No meals logged yet" : "No glucose readings yet"}</T>
+      </Text>
+      <Text className="mt-2 text-center text-sm leading-6 text-gray-500">
+        <T>
+          {activeTab === "meals"
+            ? "Once you log meals, they will appear here with calories, carbs, and food details."
+            : "Once you log a reading, you will see the value, type, time, and any notes here."}
+        </T>
+      </Text>
+    </View>
+  );
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       {/* Header */}
-      <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <View className="flex-row items-center">
-          <Pressable
-            onPress={handleBack}
-            className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-          >
-            <ArrowLeft size={20} color="#374151" />
-          </Pressable>
-          <View className="flex-1 ml-3">
-            <Text className="text-xl font-bold text-gray-900">
-              Meal History
-            </Text>
-            <Text className="text-xs text-gray-500">
-              {totalStats.meals} meals • {Math.round(totalStats.calories)} total
-              cal
+      <View className="flex-row items-center justify-between px-4 pb-3 pt-4">
+        <TouchableOpacity
+          onPress={() => (router.canGoBack() ? router.back() : router.dismiss())}
+          activeOpacity={0.7}
+          className="h-10 w-10 items-center justify-center rounded-full bg-primary/10"
+        >
+          <ArrowLeft size={20} color="#1447e6" />
+        </TouchableOpacity>
+
+        <View className="flex-1 px-4">
+          <View className="flex-row items-center justify-center">
+            <ScrollText size={18} color="#1447e6" />
+            <Text className="ml-2 text-center text-lg font-bold text-primary">
+              <T>Your Logs</T>
             </Text>
           </View>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowFilters(!showFilters);
-            }}
-            className={`px-3 py-2 rounded-xl flex-row items-center ${
-              filter !== "all" ? "bg-primary" : "bg-gray-100"
-            }`}
-          >
-            <Filter size={16} color={filter !== "all" ? "white" : "#6b7280"} />
-            <ChevronDown
-              size={14}
-              color={filter !== "all" ? "white" : "#6b7280"}
-              style={{ marginLeft: 4 }}
-            />
-          </Pressable>
+          <Text className="text-center text-xs text-gray-400">
+            <T>Meals and glucose history</T>
+          </Text>
+        </View>
+
+        <View className="min-w-10 items-end">
+          {!isOnline && (
+            <View className="rounded-full bg-amber-100 px-2.5 py-1">
+              <Text className="text-[10px] font-bold text-amber-700">
+                <T>Offline</T>
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Filter Dropdown */}
-      {showFilters && (
-        <Animated.View
-          entering={FadeIn}
-          className="absolute top-24 right-4 bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden"
-          style={{
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
-          }}
-        >
-          {filterOptions.map((option) => {
-            const isSelected = filter === option.value;
-            return (
-              <TouchableOpacity
-                key={option.value}
-                onPress={() => handleFilterSelect(option.value)}
-                className={`flex-row items-center px-4 py-3 ${
-                  isSelected ? "bg-primary/10" : ""
-                }`}
-              >
-                {option.icon ? (
-                  <option.icon
-                    size={18}
-                    color={isSelected ? "#1447e6" : "#6b7280"}
-                  />
-                ) : (
-                  <Ionicons
-                    name="apps"
-                    size={18}
-                    color={isSelected ? "#1447e6" : "#6b7280"}
-                  />
-                )}
-                <Text
-                  className={`ml-3 ${
-                    isSelected ? "text-primary font-semibold" : "text-gray-700"
+      {/* Tabs */}
+      <View className="px-4 pb-3">
+        <View className="rounded-2xl border border-gray-200 bg-white p-1">
+          <View className="flex-row">
+            {(["meals", "glucose"] as LogsTab[]).map((tab) => {
+              const active = activeTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setActiveTab(tab);
+                  }}
+                  className={`flex-1 rounded-xl px-4 py-3 ${
+                    active ? "bg-primary" : "bg-transparent"
                   }`}
                 >
-                  {option.label}
+                  <Text
+                    className={`text-center text-sm font-bold ${
+                      active ? "text-white" : "text-gray-500"
+                    }`}
+                  >
+                    <T>{tab === "meals" ? "Meals" : "Glucose"}</T>
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+
+      {/* Summary card */}
+      <View className="px-4 pb-4">
+        <View className="rounded-2xl border border-gray-100 bg-white p-4">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                <T>{activeTab === "meals" ? "Total meals" : "Total readings"}</T>
+              </Text>
+              <Text className="mt-1 text-2xl font-bold text-primary">
+                {activeTab === "meals" ? totals.meals : totals.glucose}
+              </Text>
+            </View>
+
+            {activeTab === "meals" ? (
+              <View className="items-end">
+                <Text className="text-sm font-semibold text-gray-700">
+                  {Math.round(totals.mealCalories)} cal
                 </Text>
-                {isSelected && (
-                  <Ionicons
-                    name="checkmark"
-                    size={18}
-                    color="#1447e6"
-                    style={{ marginLeft: "auto" }}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </Animated.View>
-      )}
+                <Text className="mt-0.5 text-sm text-gray-400">
+                  {Math.round(totals.mealCarbs)}g carbs
+                </Text>
+              </View>
+            ) : (
+              <View className="items-end">
+                <Text className="text-sm font-semibold text-gray-700">
+                  {glucoseLogs[0]?.valueMgDl ?? "--"} mg/dL
+                </Text>
+                <Text className="mt-0.5 text-sm text-gray-400">
+                  {glucoseLogs[0]
+                    ? new Date(glucoseLogs[0].timestamp).toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "No readings"}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
 
       {/* Content */}
-      <FlatList
-        data={groupedMeals}
-        keyExtractor={(item) => item.date}
-        renderItem={renderDateGroup}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || isFetchingAggregations}
-            onRefresh={handleRefresh}
-            tintColor="#1447e6"
-          />
-        }
-        ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-20">
-            <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-              <Ionicons name="restaurant-outline" size={40} color="#9ca3af" />
-            </View>
-            <Text className="text-lg font-semibold text-gray-700 mb-2">
-              No Meals Logged
-            </Text>
-            <Text className="text-sm text-gray-500 text-center px-8">
-              Start logging your meals to track your nutrition and get
-              personalized recommendations.
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/meal-recommendation")}
-              className="mt-6 bg-primary px-6 py-3 rounded-full"
-            >
-              <Text className="text-white font-semibold">
-                Log Your First Meal
-              </Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+      {isLoading && mealLogs.length === 0 && glucoseLogs.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <AppLoader size="lg" color="#1447e6" />
+          <Text className="mt-4 text-sm text-gray-400">
+            <T>Loading your logs...</T>
+          </Text>
+        </View>
+      ) : (
+        <>
+          {activeTab === "meals" ? (
+            <FlatList
+              data={activeMealData}
+              keyExtractor={(item) => item.key}
+              renderItem={renderMealGroup}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListHeaderComponent={
+                <>
+                  {offlineBanner}
+                  {errorBanner}
+                </>
+              }
+              ListEmptyComponent={
+                <ScrollView
+                  contentContainerStyle={{ flexGrow: 1 }}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={handleRefresh}
+                      tintColor="#1447e6"
+                    />
+                  }
+                >
+                  {offlineBanner}
+                  {errorBanner}
+                  {emptyState}
+                </ScrollView>
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor="#1447e6"
+                />
+              }
+            />
+          ) : (
+            <FlatList
+              data={activeGlucoseData}
+              keyExtractor={(item) => item.key}
+              renderItem={renderGlucoseGroup}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListHeaderComponent={
+                <>
+                  {offlineBanner}
+                  {errorBanner}
+                </>
+              }
+              ListEmptyComponent={
+                <ScrollView
+                  contentContainerStyle={{ flexGrow: 1 }}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={handleRefresh}
+                      tintColor="#1447e6"
+                    />
+                  }
+                >
+                  {offlineBanner}
+                  {errorBanner}
+                  {emptyState}
+                </ScrollView>
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor="#1447e6"
+                />
+              }
+            />
+          )}
+        </>
+      )}
     </SafeAreaView>
   );
 }

@@ -1,4 +1,5 @@
 import { checkOnboardingStatus } from "@/app/onboarding";
+import { AppLoader } from "@/components/ui";
 import { Href, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
@@ -77,14 +78,8 @@ export default function SplashScreenView() {
           </Animated.Text>
         </Animated.View>
 
-        {/* Loading indicator */}
-        <View className="absolute bottom-20">
-          <View className="w-10 h-1 rounded-full bg-[var(--border)] overflow-hidden">
-            <Animated.View
-              style={{ opacity: fadeAnim }}
-              className="h-full w-full bg-[var(--primary)] rounded-full animate-pulse"
-            />
-          </View>
+        <View className="absolute bottom-20 items-center">
+          <AppLoader size="md" color="#1447e6" />
         </View>
       </View>
     </SafeAreaView>

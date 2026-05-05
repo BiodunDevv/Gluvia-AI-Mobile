@@ -1137,7 +1137,14 @@ export interface PendingMealLog {
   clientGeneratedId: string;
   userId: string;
   mealType: string;
-  foods: Array<{ foodId: string; portionSize: string; quantity: number }>;
+  foods: Array<{
+    foodId: string;
+    portionSize: string;
+    quantity: number;
+    localName?: string;
+    canonicalName?: string;
+    category?: string;
+  }>;
   notes?: string;
   timestamp: string;
   synced?: boolean;

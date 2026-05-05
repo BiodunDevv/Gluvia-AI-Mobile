@@ -68,9 +68,7 @@ function TermsContent() {
       </Text>
 
       <Section title="1. Acceptance of Terms">
-        {'By accessing or using Gluvia AI ("the App"), you agree to be bound by'}
-        these Terms of Service. If you do not agree to these terms, please do
-        not use the App.
+        {'By accessing or using Gluvia AI ("the App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the App.'}
       </Section>
 
       <Section title="2. Description of Service">
@@ -172,14 +170,16 @@ function PrivacyContent() {
       <Section title="6. Your Rights (NDPR Compliance)">
         Under the Nigeria Data Protection Regulation (NDPR), you have the right
         to access, correct, or delete your personal data. You can export your
-        data or request account deletion at any time through the App settings.
+        data or request account deletion at any time from Profile in the app or
+        through the verified web request page at gluvia.vercel.app/delete-account.
       </Section>
 
       <Section title="7. Data Retention">
         We retain your personal information for as long as your account is
-        active or as needed to provide services. If you delete your account,
-        your personal data will be removed within 30 days, except where
-        retention is required by law.
+        active or as needed to provide services. Approved account deletion is
+        completed immediately or scheduled for 15 or 30 days. Audit logs and
+        deletion request records may be retained for up to 90 days after
+        completion or cancellation where needed for security and compliance.
       </Section>
 
       <Section title="8. Children's Privacy">

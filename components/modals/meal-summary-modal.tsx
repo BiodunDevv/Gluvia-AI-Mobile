@@ -11,6 +11,7 @@ import {
   MealType,
   RecommendedFood,
 } from "@/lib/meal-recommendation";
+import { AppLoader } from "@/components/ui";
 import { Image } from "expo-image";
 import {
   AlertCircle,
@@ -23,7 +24,6 @@ import {
 } from "lucide-react-native";
 import { useMemo } from "react";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -346,7 +346,7 @@ export function MealSummaryModal({
                 }`}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="white" size="small" />
+                  <AppLoader color="#ffffff" size="sm" />
                 ) : (
                   <>
                     <Check size={18} color="white" />

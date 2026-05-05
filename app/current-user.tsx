@@ -1,6 +1,8 @@
 import { useAuthStore } from "@/store/auth-store";
+import { useSyncStore } from "@/store/sync-store";
 import { isProfileComplete } from "@/lib/profile-completion";
 import { T } from "@/hooks/use-translation";
+import { AppLoader } from "@/components/ui";
 import { Href, router } from "expo-router";
 import {
   ArrowRight,
@@ -9,13 +11,15 @@ import {
   LogIn,
   LogOut,
   MessageCircle,
+  Trash2,
   TrendingUp,
+  Wifi,
   WifiOff,
 } from "lucide-react-native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
+  Linking,
   ScrollView,
   StatusBar,
   Text,
@@ -25,12 +29,44 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CurrentUserScreen() {
-  const { user, checkAuth, isAuthenticated, isLoading, isOffline, logout } =
+  const { user, checkAuth, isAuthenticated, isLoading, logout } =
     useAuthStore();
+  const isOnline = useSyncStore((state) => state.isOnline);
+  const showOffline = !isOnline;
+  const [isCheckingSession, setIsCheckingSession] = useState(
+    !isAuthenticated && !user
+  );
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (isAuthenticated && user) {
+      setIsCheckingSession(false);
+      return;
+    }
+
+    let mounted = true;
+
+    checkAuth()
+      .catch(() => false)
+      .finally(() => {
+        if (mounted) {
+          setIsCheckingSession(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [checkAuth, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    router.replace(
+      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href
+    );
+  }, [isAuthenticated, user]);
 
   const handleContinueToDashboard = () => {
     router.replace(
@@ -55,7 +91,11 @@ export default function CurrentUserScreen() {
     router.replace("/(auth)/login" as Href);
   };
 
-  if (isLoading) {
+  const handleRequestDeletion = () => {
+    Linking.openURL("https://gluvia.vercel.app/delete-account");
+  };
+
+  if (isLoading || isCheckingSession || (isAuthenticated && user)) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -67,9 +107,9 @@ export default function CurrentUserScreen() {
               resizeMode="contain"
             />
           </View>
-          <ActivityIndicator size="large" color="#1447e6" />
+          <AppLoader size="lg" color="#1447e6" />
           <Text className="text-gray-400 mt-4 text-sm">
-            <T>Checking your session...</T>
+            <T>Opening your dashboard...</T>
           </Text>
         </View>
       </SafeAreaView>
@@ -114,14 +154,21 @@ export default function CurrentUserScreen() {
                 </Text>
               </View>
               <View className="flex-row items-center gap-2">
-                {isOffline ? (
-                  <View className="flex-row items-center px-3 py-1.5 bg-amber-50 rounded-full">
-                    <WifiOff size={14} color="#d97706" />
-                    <Text className="text-xs font-medium text-amber-700 ml-1.5">
+                {showOffline ? (
+                  <View className="flex-row items-center px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full gap-1.5">
+                    <WifiOff size={13} color="#b45309" />
+                    <Text className="text-xs font-semibold text-amber-800">
                       <T>Offline</T>
                     </Text>
                   </View>
-                ) : null}
+                ) : (
+                  <View className="flex-row items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full gap-1.5">
+                    <Wifi size={13} color="#059669" />
+                    <Text className="text-xs font-semibold text-emerald-700">
+                      <T>Online</T>
+                    </Text>
+                  </View>
+                )}
                 <TouchableOpacity
                   className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
                   onPress={handleLanguage}
@@ -249,6 +296,17 @@ export default function CurrentUserScreen() {
                 <LogOut size={20} color="#374151" />
                 <Text className="text-gray-700 text-base font-semibold ml-2">
                   <T>Log Out</T>
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="h-12 rounded-2xl items-center justify-center flex-row mt-2"
+                onPress={handleRequestDeletion}
+                activeOpacity={0.7}
+              >
+                <Trash2 size={15} color="#ef4444" />
+                <Text className="text-red-500 text-sm font-medium ml-1.5">
+                  <T>Request Account Deletion</T>
                 </Text>
               </TouchableOpacity>
 

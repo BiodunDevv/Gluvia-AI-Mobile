@@ -6,6 +6,7 @@
  * Displays progress during sync and allows continuation when complete.
  */
 
+import { AppLoader } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ArrowRight,
@@ -19,7 +20,7 @@ import {
   Zap,
 } from "lucide-react-native";
 import { useMemo } from "react";
-import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -295,7 +296,7 @@ export function SyncRequiredModal({
               >
                 {isSyncing ? (
                   <>
-                    <ActivityIndicator color="#1447e6" size="small" />
+                    <AppLoader color="#1447e6" size="sm" />
                     <Text className="text-primary font-bold text-lg ml-3">
                       Syncing Data...
                     </Text>

@@ -1,12 +1,13 @@
 import { FoodDetailModal } from "@/components/modals";
+import { AppLoader } from "@/components/ui";
 import { T, useTranslation } from "@/hooks/use-translation";
 import { Food, useFoodStore } from "@/store/food-store";
+import { useSyncStore } from "@/store/sync-store";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
   ScrollView,
@@ -283,6 +284,9 @@ export default function FoodsScreen() {
   const { t } = useTranslation();
   const { foods, isLoading, isOffline, fetchFoods, pagination } =
     useFoodStore();
+  const isOnline = useSyncStore((state) => state.isOnline);
+  const showOfflineBanner = !isOnline;
+  const showCachedBanner = isOnline && isOffline;
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -550,11 +554,11 @@ export default function FoodsScreen() {
         {/* Results summary */}
         <View className="flex-row items-center justify-between bg-gray-100/50 rounded-lg px-3 py-2">
           <View className="flex-row items-center">
-            {isOffline && (
+            {showCachedBanner && (
               <View className="flex-row items-center mr-2 bg-amber-100 px-2 py-0.5 rounded-full">
                 <Ionicons name="cloud-offline" size={12} color="#d97706" />
                 <Text className="text-[10px] text-amber-700 font-medium ml-1">
-                  <T>Offline</T>
+                  <T>Cached</T>
                 </Text>
               </View>
             )}
@@ -626,7 +630,7 @@ export default function FoodsScreen() {
           >
             {isLoadingMore ? (
               <>
-                <ActivityIndicator size="small" color="#1447e6" />
+                <AppLoader size="sm" color="#1447e6" />
                 <Text className="ml-2 text-primary font-semibold">
                   <T>Loading...</T>
                 </Text>
@@ -717,7 +721,7 @@ export default function FoodsScreen() {
               <T>Nigerian foods & nutrition</T>
             </Text>
           </View>
-          {isOffline && (
+          {showOfflineBanner && (
             <View className="bg-amber-100 px-3 py-1.5 rounded-full flex-row items-center">
               <Ionicons name="cloud-offline" size={14} color="#d97706" />
               <Text className="text-xs text-amber-700 font-medium ml-1.5">
@@ -787,13 +791,13 @@ export default function FoodsScreen() {
       {isLoading && foods.length === 0 && (
         <View className="absolute inset-0 items-center justify-center bg-gray-50">
           <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
-            <ActivityIndicator size="large" color="#1447e6" />
+            <AppLoader size="lg" color="#1447e6" />
             <Text className="text-gray-600 mt-3 font-medium">
               Loading foods...
             </Text>
-            {isOffline && (
+            {showCachedBanner && (
               <Text className="text-xs text-amber-600 mt-1">
-                Using offline data
+                Using cached data
               </Text>
             )}
           </View>

@@ -12,11 +12,11 @@ import {
   RuleTemplate,
   searchAndScoreFoods,
 } from "@/lib/meal-recommendation";
+import { AppLoader } from "@/components/ui";
 import * as Haptics from "expo-haptics";
 import { Search, Utensils, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Keyboard,
   Modal,
@@ -210,7 +210,7 @@ export function SearchFoodModal({
                 </>
               ) : debouncedQuery !== query ? (
                 <View className="items-center">
-                  <ActivityIndicator size="large" color="#1447e6" />
+                  <AppLoader size="lg" color="#1447e6" />
                   <Text className="text-gray-400 mt-4">Searching...</Text>
                 </View>
               ) : (

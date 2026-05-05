@@ -1,11 +1,11 @@
 import { T, useTranslation } from "@/hooks/use-translation";
+import { AppLoader } from "@/components/ui";
 import { translateDynamicText } from "@/lib/translator";
 import { useNotificationStore } from "@/store/notification-store";
 import { useSyncStore } from "@/store/sync-store";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -133,7 +133,7 @@ export default function NotificationDetailsPage() {
   if (isLoading && !notification) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator color="#1447e6" />
+        <AppLoader color="#1447e6" />
       </View>
     );
   }
@@ -214,7 +214,7 @@ export default function NotificationDetailsPage() {
 
             {isLoading ? (
               <View className="mt-5 flex-row items-center rounded-2xl bg-gray-50 px-4 py-3">
-                <ActivityIndicator color="#1447e6" size="small" />
+                <AppLoader color="#1447e6" size="sm" />
                 <Text className="ml-3 text-sm text-gray-500">
                   <T>Refreshing notification details...</T>
                 </Text>

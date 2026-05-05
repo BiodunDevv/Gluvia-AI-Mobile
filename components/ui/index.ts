@@ -1,4 +1,5 @@
 export { AppScreenHeader } from "./app-screen-header";
+export { AppLoader, type AppLoaderProps } from "./app-loader";
 export { Button } from "./button";
 export { Dropdown } from "./dropdown";
 export { FormField } from "./form-field";

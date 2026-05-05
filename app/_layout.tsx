@@ -33,8 +33,13 @@ export default function RootLayout() {
     (state) => state.initializeFromCache
   );
   const setOnlineStatus = useSyncStore((state) => state.setOnlineStatus);
+  const syncPendingLogs = useSyncStore((state) => state.syncPendingLogs);
+  const checkAndApplyUpdates = useSyncStore((state) => state.checkAndApplyUpdates);
+  const getAggregations = useSyncStore((state) => state.getAggregations);
+  const invalidateAggregations = useSyncStore((state) => state.invalidateAggregations);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const maintenanceMessage = useAuthStore((state) => state.maintenanceMessage);
   const setMaintenanceMessage = useAuthStore(
@@ -75,21 +80,40 @@ export default function RootLayout() {
     };
     initialize();
 
-    // Subscribe to network changes
+    // Subscribe to network changes — auto-sync when coming back online.
+    // wasOnline starts as false so the first "connected" event from the
+    // listener doesn't fire a spurious reconnect sync on cold start.
+    let wasOnline = false;
     const unsubscribe = NetInfo.addEventListener((state) => {
-      setOnlineStatus(
-        (state.isConnected && state.isInternetReachable !== false) ?? false
-      );
+      const nowOnline =
+        (state.isConnected && state.isInternetReachable !== false) ?? false;
+      setOnlineStatus(nowOnline);
+
+      if (nowOnline && !wasOnline) {
+        // Device just reconnected — flush pending logs and refresh data
+        const userId = useAuthStore.getState().user?._id;
+        if (userId) {
+          syncPendingLogs(userId).catch(() => {});
+        }
+        checkAndApplyUpdates().catch(() => {});
+        invalidateAggregations();
+        getAggregations({ page: 1, limit: 200 }, { force: true }).catch(() => {});
+      }
+      wasOnline = nowOnline;
     });
 
     return () => unsubscribe();
   }, [
+    checkAndApplyUpdates,
     checkAuth,
+    getAggregations,
     initializeClientVersion,
     initializeFromCache,
     initializeLanguage,
+    invalidateAggregations,
     setMaintenanceMessage,
     setOnlineStatus,
+    syncPendingLogs,
   ]);
 
   useEffect(() => {
@@ -97,12 +121,14 @@ export default function RootLayout() {
   }, [initializeLanguage, user?.profile?.language]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Wait for both isAuthenticated AND the token to be set in state
+    // to avoid firing before the token is readable by the API interceptor
+    if (!isAuthenticated || !token) {
       return;
     }
 
     fetchNotifications(undefined, { silent: true }).catch(() => {});
-  }, [fetchNotifications, isAuthenticated]);
+  }, [fetchNotifications, isAuthenticated, token]);
 
   useEffect(() => {
     const subscription =

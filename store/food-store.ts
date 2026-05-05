@@ -1,3 +1,12 @@
+/**
+ * food-store
+ *
+ * Online-first: foods live in sync-store (server truth).
+ * This store is a thin selector/search layer on top of sync-store.
+ * It reads from the SQLite cache only when sync-store has nothing yet.
+ * No separate network calls — sync-store owns all food fetching.
+ */
+
 import {
   CachedFood,
   getCachedFoodById,
@@ -79,7 +88,6 @@ const defaultFilters: FoodFilters = {
   limit: 20,
 };
 
-// Convert cached food to Food interface
 function cachedToFood(cached: CachedFood): Food {
   return {
     _id: cached.id,
@@ -100,7 +108,6 @@ function cachedToFood(cached: CachedFood): Food {
   };
 }
 
-// Export Food type for use in other modules
 export type { Food };
 
 export const useFoodStore = create<FoodState>((set, get) => ({
@@ -115,20 +122,18 @@ export const useFoodStore = create<FoodState>((set, get) => ({
     set({ isLoading: true });
     try {
       const mergedFilters = { ...get().filters, ...filters };
-
-      // Get foods from sync store first
       const syncedFoods = useSyncStore.getState().foods;
 
-      // If sync store has foods, use them directly
       if (syncedFoods.length > 0) {
-        // Apply filters locally
-        let filteredFoods = syncedFoods;
+        // Apply filters locally — no network needed
+        let filteredFoods = syncedFoods.filter((f) => !f.deleted);
+
         if (mergedFilters.search) {
-          const searchLower = mergedFilters.search.toLowerCase();
+          const q = mergedFilters.search.toLowerCase();
           filteredFoods = filteredFoods.filter(
             (f) =>
-              f.localName.toLowerCase().includes(searchLower) ||
-              f.canonicalName?.toLowerCase().includes(searchLower)
+              f.localName.toLowerCase().includes(q) ||
+              f.canonicalName?.toLowerCase().includes(q)
           );
         }
         if (mergedFilters.category) {
@@ -138,8 +143,7 @@ export const useFoodStore = create<FoodState>((set, get) => ({
         }
         if (mergedFilters.maxGI) {
           filteredFoods = filteredFoods.filter(
-            (f) =>
-              f.nutrients.gi !== null && f.nutrients.gi <= mergedFilters.maxGI!
+            (f) => f.nutrients.gi !== null && f.nutrients.gi <= mergedFilters.maxGI!
           );
         }
         if (mergedFilters.affordability) {
@@ -148,7 +152,6 @@ export const useFoodStore = create<FoodState>((set, get) => ({
           );
         }
 
-        // Pagination
         const page = mergedFilters.page || 1;
         const limit = mergedFilters.limit || 20;
         const start = (page - 1) * limit;
@@ -169,10 +172,8 @@ export const useFoodStore = create<FoodState>((set, get) => ({
         return;
       }
 
-      // If sync store is empty, check cache
+      // sync-store empty — check SQLite cache
       const cachedCount = await getCachedFoodsCount();
-
-      // If cache has data, use cached data
       if (cachedCount > 0) {
         const page = mergedFilters.page || 1;
         const limit = mergedFilters.limit || 20;
@@ -187,16 +188,13 @@ export const useFoodStore = create<FoodState>((set, get) => ({
           offset,
         });
 
-        const total = cachedCount;
-        const newFoods = cachedFoods.map(cachedToFood);
-
         set({
-          foods: append ? [...get().foods, ...newFoods] : newFoods,
+          foods: append ? [...get().foods, ...cachedFoods.map(cachedToFood)] : cachedFoods.map(cachedToFood),
           pagination: {
             page,
             limit,
-            total,
-            totalPages: Math.ceil(total / limit),
+            total: cachedCount,
+            totalPages: Math.ceil(cachedCount / limit),
           },
           filters: mergedFilters,
           isLoading: false,
@@ -205,14 +203,11 @@ export const useFoodStore = create<FoodState>((set, get) => ({
         return;
       }
 
-      // No data available - user needs to sync first
-      set({
-        foods: [],
-        pagination: null,
-        filters: mergedFilters,
-        isLoading: false,
-        isOffline: true,
-      });
+      // Nothing cached — trigger a full sync from the server
+      await useSyncStore.getState().getFullSync();
+      // Recurse once with same filters — sync-store now has data
+      set({ isLoading: false });
+      await get().fetchFoods(filters, append);
     } catch (error) {
       console.error("Error fetching foods:", error);
       toast.error("Failed to load foods");
@@ -227,25 +222,21 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   getFoodById: async (id: string) => {
     set({ isLoading: true });
     try {
-      // First check sync store
-      const syncedFoods = useSyncStore.getState().foods;
-      let food = syncedFoods.find((f) => f._id === id);
-
-      if (food) {
-        set({ currentFood: food, isLoading: false, isOffline: false });
-        return food;
+      const synced = useSyncStore.getState().foods.find((f) => f._id === id);
+      if (synced) {
+        set({ currentFood: synced, isLoading: false, isOffline: false });
+        return synced;
       }
 
-      // Fallback to cached data
-      const cachedFood = await getCachedFoodById(id);
-      if (cachedFood) {
-        food = cachedToFood(cachedFood);
+      const cached = await getCachedFoodById(id);
+      if (cached) {
+        const food = cachedToFood(cached);
         set({ currentFood: food, isLoading: false, isOffline: true });
         return food;
       }
 
       throw new Error("Food not found");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to fetch food details");
       set({ isLoading: false, currentFood: null });
       return null;
@@ -254,26 +245,19 @@ export const useFoodStore = create<FoodState>((set, get) => ({
 
   searchFoods: async (query: string) => {
     try {
-      // Get foods from sync store
       const syncedFoods = useSyncStore.getState().foods;
+      const source = syncedFoods.length > 0
+        ? syncedFoods.filter((f) => !f.deleted)
+        : (await getCachedFoods({ search: query, limit: 10 })).map(cachedToFood);
 
-      // If sync store is empty, check cache
-      if (syncedFoods.length === 0) {
-        const cachedFoods = await getCachedFoods({ search: query, limit: 10 });
-        return cachedFoods.map(cachedToFood);
-      }
-
-      // Search in synced foods
-      const queryLower = query.toLowerCase();
-      const results = syncedFoods
+      const q = query.toLowerCase();
+      return source
         .filter(
           (f) =>
-            f.localName.toLowerCase().includes(queryLower) ||
-            f.canonicalName?.toLowerCase().includes(queryLower)
+            f.localName.toLowerCase().includes(q) ||
+            f.canonicalName?.toLowerCase().includes(q)
         )
         .slice(0, 10);
-
-      return results;
     } catch {
       return [];
     }
@@ -292,15 +276,13 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   },
 
   syncFoods: async () => {
-    // Trigger sync store's full sync
     set({ isLoading: true });
     try {
       await useSyncStore.getState().getFullSync();
       const foods = useSyncStore.getState().foods;
       set({ isLoading: false });
-      toast.success(`Synced ${foods.length} foods for offline use`);
-    } catch (error) {
-      console.error("Error syncing foods:", error);
+      toast.success(`Synced ${foods.length} foods`);
+    } catch {
       set({ isLoading: false });
       toast.error("Failed to sync foods");
     }
