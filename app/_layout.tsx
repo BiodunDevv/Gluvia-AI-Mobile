@@ -7,10 +7,11 @@ import {
 import { Href, Stack, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import "react-native-reanimated";
 import "../global.css";
 
-import api from "@/lib/api";
+import { api } from "@/lib/api";
 import { isProfileComplete } from "@/lib/profile-completion";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAuthStore } from "@/store/auth-store";
@@ -27,29 +28,35 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const pathname = usePathname();
   const initializeClientVersion = useSyncStore(
-    (state) => state.initializeClientVersion
+    (state) => state.initializeClientVersion,
   );
   const initializeFromCache = useSyncStore(
-    (state) => state.initializeFromCache
+    (state) => state.initializeFromCache,
   );
   const setOnlineStatus = useSyncStore((state) => state.setOnlineStatus);
   const syncPendingLogs = useSyncStore((state) => state.syncPendingLogs);
-  const checkAndApplyUpdates = useSyncStore((state) => state.checkAndApplyUpdates);
+  const checkAndApplyUpdates = useSyncStore(
+    (state) => state.checkAndApplyUpdates,
+  );
   const getAggregations = useSyncStore((state) => state.getAggregations);
-  const invalidateAggregations = useSyncStore((state) => state.invalidateAggregations);
+  const invalidateAggregations = useSyncStore(
+    (state) => state.invalidateAggregations,
+  );
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const hasCheckedAuth = useAuthStore((state) => state.hasCheckedAuth);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const maintenanceMessage = useAuthStore((state) => state.maintenanceMessage);
+  const isOnline = useSyncStore((state) => state.isOnline);
   const setMaintenanceMessage = useAuthStore(
-    (state) => state.setMaintenanceMessage
+    (state) => state.setMaintenanceMessage,
   );
   const fetchNotifications = useNotificationStore(
-    (state) => state.fetchNotifications
+    (state) => state.fetchNotifications,
   );
   const initializeLanguage = useTranslationStore(
-    (state) => state.initializeLanguage
+    (state) => state.initializeLanguage,
   );
 
   // Initialize client version, cached data, and network monitoring on app start
@@ -64,7 +71,7 @@ export default function RootLayout() {
       const netState = await NetInfo.fetch();
       setOnlineStatus(
         (netState.isConnected && netState.isInternetReachable !== false) ??
-          false
+          false,
       );
 
       try {
@@ -74,7 +81,7 @@ export default function RootLayout() {
           response.data?.maintenanceMessage ||
           "Gluvia AI is temporarily unavailable for maintenance.";
         await setMaintenanceMessage(isMaintenanceEnabled ? message : null);
-      } catch (error) {
+      } catch {
         // Keep any previously stored maintenance message if health cannot be read.
       }
     };
@@ -91,13 +98,23 @@ export default function RootLayout() {
 
       if (nowOnline && !wasOnline) {
         // Device just reconnected — flush pending logs and refresh data
-        const userId = useAuthStore.getState().user?._id;
-        if (userId) {
+        const authState = useAuthStore.getState();
+        const userId = authState.user?._id;
+        const hasSession = Boolean(
+          authState.hasCheckedAuth &&
+            authState.isAuthenticated &&
+            authState.token &&
+            userId,
+        );
+
+        if (hasSession && userId) {
           syncPendingLogs(userId).catch(() => {});
+          checkAndApplyUpdates().catch(() => {});
+          invalidateAggregations();
+          getAggregations({ page: 1, limit: 200 }, { force: true }).catch(
+            () => {},
+          );
         }
-        checkAndApplyUpdates().catch(() => {});
-        invalidateAggregations();
-        getAggregations({ page: 1, limit: 200 }, { force: true }).catch(() => {});
       }
       wasOnline = nowOnline;
     });
@@ -123,29 +140,47 @@ export default function RootLayout() {
   useEffect(() => {
     // Wait for both isAuthenticated AND the token to be set in state
     // to avoid firing before the token is readable by the API interceptor
-    if (!isAuthenticated || !token) {
+    if (
+      !hasCheckedAuth ||
+      !isAuthenticated ||
+      !token ||
+      maintenanceMessage ||
+      !isOnline
+    ) {
       return;
     }
 
     fetchNotifications(undefined, { silent: true }).catch(() => {});
-  }, [fetchNotifications, isAuthenticated, token]);
+  }, [
+    fetchNotifications,
+    hasCheckedAuth,
+    isAuthenticated,
+    isOnline,
+    maintenanceMessage,
+    token,
+  ]);
 
   useEffect(() => {
-    const subscription =
-      Notifications.addNotificationResponseReceivedListener((response) => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
         const route =
           response.notification.request.content.data?.route ||
           (response.notification.request.content.data?.notificationId
             ? `/notifications/${response.notification.request.content.data.notificationId}`
             : "/notifications");
 
-        if (typeof route === "string") {
+        if (
+          typeof route === "string" &&
+          !useAuthStore.getState().maintenanceMessage &&
+          useSyncStore.getState().isOnline
+        ) {
           router.push(route as Href);
           fetchNotifications(undefined, { silent: true, force: true }).catch(
-            () => {}
+            () => {},
           );
         }
-      });
+      },
+    );
 
     return () => subscription.remove();
   }, [fetchNotifications]);
@@ -161,12 +196,29 @@ export default function RootLayout() {
       pathname === "/" ||
       pathname === "/onboarding";
     const isMaintenancePath = pathname === "/maintenance";
+    const isOfflinePath = pathname === "/offline";
     const isProfileGatePath =
       pathname === "/complete-profile" || pathname === "/edit-profile";
     const profileComplete = isProfileComplete(user);
 
-    if (maintenanceMessage && isAuthenticated && !isAuthPath && !isMaintenancePath) {
+    if (maintenanceMessage && !isMaintenancePath) {
       router.replace("/maintenance" as Href);
+      return;
+    }
+
+    if (!maintenanceMessage && !isOnline && !isOfflinePath) {
+      router.replace("/offline" as Href);
+      return;
+    }
+
+    if (isOnline && isOfflinePath) {
+      router.replace(
+        (isAuthenticated
+          ? profileComplete
+            ? "/(tabs)"
+            : "/complete-profile"
+          : "/current-user") as Href,
+      );
       return;
     }
 
@@ -176,7 +228,7 @@ export default function RootLayout() {
           ? profileComplete
             ? "/(tabs)"
             : "/complete-profile"
-          : "/current-user") as Href
+          : "/current-user") as Href,
       );
       return;
     }
@@ -184,6 +236,7 @@ export default function RootLayout() {
     if (
       isAuthenticated &&
       !maintenanceMessage &&
+      isOnline &&
       !profileComplete &&
       !isAuthPath &&
       !isPublicPath &&
@@ -191,35 +244,67 @@ export default function RootLayout() {
     ) {
       router.replace("/complete-profile" as Href);
     }
-  }, [isAuthenticated, maintenanceMessage, pathname, user]);
+  }, [isAuthenticated, isOnline, maintenanceMessage, pathname, user]);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack
-        screenOptions={{ headerShown: false, animation: "slide_from_right" }}
+        screenOptions={{
+          headerShown: false,
+          animation: Platform.OS === "android" ? "fade" : "slide_from_right",
+        }}
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="current-user" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="maintenance" />
+        <Stack.Screen
+          name="maintenance"
+          options={{
+            gestureEnabled: false,
+            animation: "fade",
+          }}
+        />
+        <Stack.Screen
+          name="offline"
+          options={{
+            gestureEnabled: false,
+            animation: "fade",
+          }}
+        />
         <Stack.Screen name="complete-profile" />
         <Stack.Screen name="meal-recommendation" />
         <Stack.Screen name="meal-history" />
+        <Stack.Screen
+          name="food-details/[id]"
+          options={{
+            presentation: Platform.OS === "android" ? "card" : "modal",
+            animation: Platform.OS === "android" ? "fade" : "slide_from_bottom",
+          }}
+        />
         <Stack.Screen name="ai-chat/[id]" />
         <Stack.Screen
           name="edit-profile"
-          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+          options={{
+            presentation: Platform.OS === "android" ? "card" : "modal",
+            animation: Platform.OS === "android" ? "fade" : "slide_from_bottom",
+          }}
         />
         <Stack.Screen name="notifications" />
         <Stack.Screen
           name="notifications/[id]"
-          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+          options={{
+            presentation: Platform.OS === "android" ? "card" : "modal",
+            animation: Platform.OS === "android" ? "fade" : "slide_from_bottom",
+          }}
         />
         <Stack.Screen
           name="language"
-          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+          options={{
+            presentation: Platform.OS === "android" ? "card" : "modal",
+            animation: Platform.OS === "android" ? "fade" : "slide_from_bottom",
+          }}
         />
       </Stack>
       <StatusBar style="auto" />

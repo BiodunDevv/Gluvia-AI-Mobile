@@ -439,6 +439,22 @@ function parseSyncPayload<T>(
   return (responseData?.data?.[key] ?? responseData?.[key] ?? fallback) as T;
 }
 
+async function hasAuthenticatedSyncSession() {
+  const { useAuthStore } = await import("@/store/auth-store");
+  const authState = useAuthStore.getState();
+
+  return Boolean(
+    authState.hasCheckedAuth &&
+      authState.isAuthenticated &&
+      authState.token &&
+      authState.user?._id
+  );
+}
+
+function isAuthError(error: any) {
+  return error?.response?.status === 401 || error?.response?.status === 403;
+}
+
 function normalizeAggregationFilters(
   filters?: AggregationFilters
 ): AggregationFilters {
@@ -857,6 +873,16 @@ export const useSyncStore = create<SyncState>((set, get) => ({
    * Endpoint: GET /sync/full
    */
   getFullSync: async () => {
+    if (!(await hasAuthenticatedSyncSession())) {
+      const { clientVersion, foods, rules } = get();
+      return {
+        success: false,
+        serverVersion: clientVersion,
+        foods,
+        rules,
+      };
+    }
+
     set({ isSyncing: true, syncError: null });
 
     try {
@@ -909,6 +935,16 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         rules,
       };
     } catch (error: any) {
+      if (isAuthError(error)) {
+        set({ isSyncing: false, syncError: null });
+        return {
+          success: false,
+          serverVersion: get().clientVersion,
+          foods: get().foods,
+          rules: get().rules,
+        };
+      }
+
       const errorMessage = getApiErrorMessage(
         error,
         "Failed to get full sync data"
@@ -924,6 +960,17 @@ export const useSyncStore = create<SyncState>((set, get) => ({
    * Endpoint: GET /sync/updates?clientVersion=X
    */
   getDeltaUpdates: async () => {
+    if (!(await hasAuthenticatedSyncSession())) {
+      const { clientVersion } = get();
+      return {
+        success: false,
+        serverVersion: clientVersion,
+        clientVersion,
+        foodsChanged: [],
+        rulesChanged: [],
+      };
+    }
+
     set({ isSyncing: true, syncError: null });
 
     try {
@@ -984,6 +1031,18 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
       return result;
     } catch (error: any) {
+      if (isAuthError(error)) {
+        const { clientVersion } = get();
+        set({ isSyncing: false, syncError: null });
+        return {
+          success: false,
+          serverVersion: clientVersion,
+          clientVersion,
+          foodsChanged: [],
+          rulesChanged: [],
+        };
+      }
+
       const errorMessage = getApiErrorMessage(error, "Failed to get updates");
       set({ isSyncing: false, syncError: errorMessage });
       throw error;
@@ -999,6 +1058,10 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     const { getDeltaUpdates, getFullSync, foods, rules, clientVersion } = get();
 
     try {
+      if (!(await hasAuthenticatedSyncSession())) {
+        return { hasChanges: false, foodsUpdated: 0, rulesUpdated: 0 };
+      }
+
       // If no data exists, do a full sync instead of delta
       if (clientVersion === 0 || (foods.length === 0 && rules.length === 0)) {
         console.log(
@@ -1101,6 +1164,10 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         rulesUpdated,
       };
     } catch (error) {
+      if (isAuthError(error)) {
+        return { hasChanges: false, foodsUpdated: 0, rulesUpdated: 0 };
+      }
+
       console.error("Failed to check and apply updates:", error);
       return { hasChanges: false, foodsUpdated: 0, rulesUpdated: 0 };
     }

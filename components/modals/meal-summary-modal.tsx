@@ -12,6 +12,7 @@ import {
   RecommendedFood,
 } from "@/lib/meal-recommendation";
 import { AppLoader } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { Image } from "expo-image";
 import {
   AlertCircle,
@@ -33,8 +34,6 @@ import {
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInDown,
-  SlideOutDown,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -61,6 +60,7 @@ export function MealSummaryModal({
   onConfirm,
   isLoading,
 }: MealSummaryModalProps) {
+  const { t } = useTranslation();
   const info = getMealTypeInfo(mealType);
   const Icon = mealConfig.icon;
 
@@ -147,11 +147,10 @@ export function MealSummaryModal({
               </View>
               <View className="ml-3 flex-1">
                 <Text className="text-xl font-bold text-gray-800">
-                  {info.title} Summary
+                  {t(info.title)} {t("Summary")}
                 </Text>
                 <Text className="text-gray-500 text-sm">
-                  {selectedFoods.length} item
-                  {selectedFoods.length !== 1 ? "s" : ""} selected
+                  {selectedFoods.length} {t(selectedFoods.length !== 1 ? "items" : "item")} <T>selected</T>
                 </Text>
               </View>
               <Pressable
@@ -183,7 +182,7 @@ export function MealSummaryModal({
                     className="font-semibold"
                     style={{ color: carbStatus.color }}
                   >
-                    {carbStatus.label} Carb Balance
+                    {t(carbStatus.label)} {t("Carb Balance")}
                   </Text>
                 </View>
               </View>
@@ -199,7 +198,7 @@ export function MealSummaryModal({
                       {totals.calories}
                     </Text>
                     <Text className="text-xs text-gray-500 mt-0.5">
-                      Calories
+                      <T>Calories</T>
                     </Text>
                   </View>
                   <View className="items-center flex-1">
@@ -215,7 +214,9 @@ export function MealSummaryModal({
                     >
                       {Math.round(totals.carbs * 10) / 10}g
                     </Text>
-                    <Text className="text-xs text-gray-500 mt-0.5">Carbs</Text>
+                    <Text className="text-xs text-gray-500 mt-0.5">
+                      <T>Carbs</T>
+                    </Text>
                   </View>
                   <View className="items-center flex-1">
                     <View className="w-14 h-14 rounded-full bg-blue-100 items-center justify-center mb-2">
@@ -225,7 +226,7 @@ export function MealSummaryModal({
                       {totals.protein}g
                     </Text>
                     <Text className="text-xs text-gray-500 mt-0.5">
-                      Protein
+                      <T>Protein</T>
                     </Text>
                   </View>
                 </View>
@@ -234,7 +235,7 @@ export function MealSummaryModal({
                 <View className="pt-4 border-t border-gray-200">
                   <View className="flex-row justify-between mb-2">
                     <Text className="text-sm text-gray-600 font-medium">
-                      Carb Target
+                      <T>Carb Target</T>
                     </Text>
                     <Text className="text-sm font-semibold text-gray-700">
                       {Math.round(totals.carbs)}g / {info.carbRange.max}g
@@ -259,7 +260,7 @@ export function MealSummaryModal({
               <View className="flex-row mb-4">
                 <View className="flex-1 bg-green-50 rounded-xl p-3 mr-2">
                   <Text className="text-green-800 font-medium text-sm">
-                    🥬 Fiber
+                    🥬 <T>Fiber</T>
                   </Text>
                   <Text className="text-green-700 font-bold text-lg mt-1">
                     {totals.fiber}g
@@ -267,7 +268,7 @@ export function MealSummaryModal({
                 </View>
                 <View className="flex-1 bg-yellow-50 rounded-xl p-3 ml-2">
                   <Text className="text-yellow-800 font-medium text-sm">
-                    🧈 Fat
+                    🧈 <T>Fat</T>
                   </Text>
                   <Text className="text-yellow-700 font-bold text-lg mt-1">
                     {totals.fat}g
@@ -278,7 +279,7 @@ export function MealSummaryModal({
               {/* Selected Foods List */}
               <View className="mb-2">
                 <Text className="font-semibold text-gray-700 mb-3">
-                  Selected Foods
+                  <T>Selected Foods</T>
                 </Text>
                 {selectedFoods.map((food, index) => (
                   <View
@@ -308,9 +309,9 @@ export function MealSummaryModal({
                         {food.localName}
                       </Text>
                       <Text className="text-xs text-gray-500 mt-0.5">
-                        {food.suggestedPortion.name} (
+                        {t(food.suggestedPortion.name)} (
                         {food.suggestedPortion.grams}g) •{" "}
-                        {food.suggestedPortion.carbs_g}g carbs
+                        {food.suggestedPortion.carbs_g}g <T>carbs</T>
                       </Text>
                     </View>
                     <View className="bg-primary/10 px-2.5 py-1.5 rounded-lg">
@@ -320,7 +321,7 @@ export function MealSummaryModal({
                             food.suggestedPortion.grams) /
                             100
                         )}{" "}
-                        cal
+                        <T>cal</T>
                       </Text>
                     </View>
                   </View>
@@ -334,7 +335,9 @@ export function MealSummaryModal({
                 onPress={onClose}
                 className="flex-1 mr-2 py-4 rounded-xl bg-gray-100 items-center active:bg-gray-200"
               >
-                <Text className="font-semibold text-gray-600">Edit Meal</Text>
+                <Text className="font-semibold text-gray-600">
+                  <T>Edit Meal</T>
+                </Text>
               </Pressable>
               <Pressable
                 onPress={onConfirm}
@@ -351,7 +354,7 @@ export function MealSummaryModal({
                   <>
                     <Check size={18} color="white" />
                     <Text className="font-semibold text-white ml-2">
-                      Log Meal
+                      <T>Log Meal</T>
                     </Text>
                   </>
                 )}

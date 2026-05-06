@@ -1,4 +1,5 @@
 import { AppLoader, AppScreenHeader, TodayStatsCard } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import {
   getCurrentMealType,
   getMealTypeInfo,
@@ -58,6 +59,7 @@ function MealPlanRow({
   recommended: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const info = getMealTypeInfo(type);
   const config = MEAL_CONFIG[type];
   const Icon = config.icon;
@@ -76,16 +78,18 @@ function MealPlanRow({
       <View className="ml-3 flex-1">
         <View className="flex-row items-center">
           <Text className="text-base font-semibold text-gray-900">
-            {info.title}
+            {t(info.title)}
           </Text>
           {recommended ? (
             <View className="ml-2 rounded-md bg-primary/10 px-2 py-0.5">
-              <Text className="text-[11px] font-medium text-primary">Now</Text>
+              <Text className="text-[11px] font-medium text-primary">
+                <T>Now</T>
+              </Text>
             </View>
           ) : null}
         </View>
         <Text className="mt-0.5 text-xs text-gray-500">
-          {info.carbRange.min}-{info.carbRange.max}g carb target
+          {info.carbRange.min}-{info.carbRange.max}g <T>carb target</T>
         </Text>
       </View>
       <ChevronRight size={18} color="#9ca3af" />
@@ -94,6 +98,7 @@ function MealPlanRow({
 }
 
 function RecentMealRow({ meal }: { meal: MealHistoryEntry }) {
+  const { t } = useTranslation();
   const config = MEAL_CONFIG[meal.mealType];
   const Icon = config.icon;
 
@@ -107,11 +112,11 @@ function RecentMealRow({ meal }: { meal: MealHistoryEntry }) {
       </View>
       <View className="ml-3 flex-1">
         <Text className="text-sm font-semibold text-gray-900">
-          {getMealTypeInfo(meal.mealType).title}
+          {t(getMealTypeInfo(meal.mealType).title)}
         </Text>
         <Text className="mt-0.5 text-xs text-gray-500">
-          {Math.round(meal.totalCarbs || 0)}g carbs -{" "}
-          {Math.round(meal.totalCalories || 0)} cal
+          {Math.round(meal.totalCarbs || 0)}g <T>carbs</T> -{" "}
+          {Math.round(meal.totalCalories || 0)} <T>cal</T>
         </Text>
       </View>
       <Text className="text-xs text-gray-400">
@@ -125,6 +130,7 @@ function RecentMealRow({ meal }: { meal: MealHistoryEntry }) {
 }
 
 export default function MealRecommendationHub() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const {
     getFullSync,
@@ -148,6 +154,10 @@ export default function MealRecommendationHub() {
   const [refreshing, setRefreshing] = useState(false);
 
   const currentMealType = getCurrentMealType();
+  const currentMealSubtitle = useMemo(
+    () => t(getTimeContextMessage(currentMealType)),
+    [currentMealType, t]
+  );
   const totalFoodsCount = foods.length;
 
   const checkDataReady = useCallback(async () => {
@@ -218,8 +228,8 @@ export default function MealRecommendationHub() {
   const syncData = async () => {
     if (!isOnline) {
       Alert.alert(
-        "You're offline",
-        "Connect to the internet to download meal data."
+        t("You're offline"),
+        t("Connect to the internet to download meal data.")
       );
       return;
     }
@@ -229,7 +239,7 @@ export default function MealRecommendationHub() {
       setIsDataReady(true);
       await fetchTodayStats();
     } catch {
-      Alert.alert("Sync failed", "Please check your internet connection and try again.");
+      Alert.alert(t("Sync failed"), t("Please check your internet connection and try again."));
     } finally {
       setIsSyncing(false);
     }
@@ -237,7 +247,7 @@ export default function MealRecommendationHub() {
 
   const updateData = async () => {
     if (!isOnline) {
-      Alert.alert("You're offline", "Connect to the internet to check for updates.");
+      Alert.alert(t("You're offline"), t("Connect to the internet to check for updates."));
       return;
     }
     setIsUpdating(true);
@@ -247,7 +257,7 @@ export default function MealRecommendationHub() {
         await fetchTodayStats();
       }
     } catch {
-      Alert.alert("Update failed", "Please check your internet connection and try again.");
+      Alert.alert(t("Update failed"), t("Please check your internet connection and try again."));
     } finally {
       setIsUpdating(false);
     }
@@ -257,8 +267,8 @@ export default function MealRecommendationHub() {
     if (!isDataReady) {
       if (!isOnline) {
         Alert.alert(
-          "No meal data available offline",
-          "You need to download meal data at least once while connected. Connect to the internet to get started."
+          t("No meal data available offline"),
+          t("You need to download meal data at least once while connected. Connect to the internet to get started.")
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
@@ -274,8 +284,8 @@ export default function MealRecommendationHub() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <AppScreenHeader
-        title="Meals"
-        subtitle={getTimeContextMessage(currentMealType)}
+        title={t("Meals")}
+        subtitle={currentMealSubtitle}
         rightSlot={
           isDataReady ? (
             <View className="flex-row">
@@ -314,7 +324,9 @@ export default function MealRecommendationHub() {
         {isChecking ? (
           <View className="items-center py-20">
             <AppLoader size="lg" color="#1447e6" />
-            <Text className="mt-4 text-sm text-gray-500">Preparing meals...</Text>
+            <Text className="mt-4 text-sm text-gray-500">
+              <T>Preparing meals...</T>
+            </Text>
           </View>
         ) : null}
 
@@ -324,7 +336,7 @@ export default function MealRecommendationHub() {
               <View className="mb-4 flex-row items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
                 <WifiOff size={16} color="#b45309" />
                 <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
-                  You are offline. Connect to the internet to download meal data for the first time.
+                  <T>You are offline. Connect to the internet to download meal data for the first time.</T>
                 </Text>
               </View>
             ) : null}
@@ -332,10 +344,10 @@ export default function MealRecommendationHub() {
               <Database size={20} color="#1447e6" />
             </View>
             <Text className="mt-4 text-lg font-semibold text-gray-900">
-              Prepare meal data
+              <T>Prepare meal data</T>
             </Text>
             <Text className="mt-2 text-sm leading-6 text-gray-500">
-              Download food data and rules once. Recommendations then work instantly from your device, even offline.
+              <T>Download food data and rules once. Recommendations then work instantly from your device, even offline.</T>
             </Text>
             <Pressable
               onPress={syncData}
@@ -350,7 +362,7 @@ export default function MealRecommendationHub() {
                 <CheckCircle size={18} color={isOnline ? "#ffffff" : "#9ca3af"} />
               )}
               <Text className={`ml-2 font-semibold ${isOnline ? "text-white" : "text-gray-400"}`}>
-                {isSyncing ? "Preparing..." : "Prepare data"}
+                <T>{isSyncing ? "Preparing..." : "Prepare data"}</T>
               </Text>
             </Pressable>
           </View>
@@ -362,7 +374,7 @@ export default function MealRecommendationHub() {
               <View className="mx-4 mb-3 flex-row items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <WifiOff size={15} color="#b45309" />
                 <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
-                  Offline — recommendations use cached data. Logging meals will sync when you reconnect.
+                  <T>Offline — recommendations use cached data. Logging meals will sync when you reconnect.</T>
                 </Text>
               </View>
             )}
@@ -370,17 +382,19 @@ export default function MealRecommendationHub() {
               <View className="flex-row items-center justify-between">
                 <View>
                   <Text className="text-sm font-medium text-gray-500">
-                    {"Today's meal plan"}
+                    <T>Today&apos;s meal plan</T>
                   </Text>
                   <Text className="mt-1 text-xl font-semibold text-gray-900">
-                    {getMealTypeInfo(currentMealType).title}
+                    {t(getMealTypeInfo(currentMealType).title)}
                   </Text>
                 </View>
                 <View className="items-end">
                   <Text className="text-sm font-medium text-primary">
                     {totalFoodsCount}
                   </Text>
-                  <Text className="text-xs text-gray-500">foods ready</Text>
+                  <Text className="text-xs text-gray-500">
+                    <T>foods ready</T>
+                  </Text>
                 </View>
               </View>
             </View>
@@ -397,7 +411,7 @@ export default function MealRecommendationHub() {
             <View className="px-4">
               <View className="mb-3 flex-row items-center justify-between">
                 <Text className="text-lg font-semibold text-gray-900">
-                  Plan next meal
+                  <T>Plan next meal</T>
                 </Text>
                 <Pressable
                   onPress={() => router.push("/meal-history" as Href)}
@@ -405,7 +419,7 @@ export default function MealRecommendationHub() {
                 >
                   <History size={15} color="#1447e6" />
                   <Text className="ml-1.5 text-xs font-medium text-primary">
-                    Logs
+                    <T>Logs</T>
                   </Text>
                 </Pressable>
               </View>
@@ -424,10 +438,10 @@ export default function MealRecommendationHub() {
               <View className="mt-5 px-4">
                 <View className="mb-3 flex-row items-center justify-between">
                   <Text className="text-lg font-semibold text-gray-900">
-                    {"Today's logs"}
+                    <T>Today&apos;s logs</T>
                   </Text>
                   <Text className="text-xs text-gray-500">
-                    {todaysMeals.length} logged
+                    {todaysMeals.length} <T>logged</T>
                   </Text>
                 </View>
                 <View className="rounded-xl border border-gray-200 bg-white px-3">
@@ -442,10 +456,10 @@ export default function MealRecommendationHub() {
                   <Utensils size={18} color="#6b7280" />
                 </View>
                 <Text className="mt-3 text-base font-semibold text-gray-900">
-                  No meals logged today
+                  <T>No meals logged today</T>
                 </Text>
                 <Text className="mt-1 text-sm text-gray-500">
-                  Choose a meal type above to build and log your next meal.
+                  <T>Choose a meal type above to build and log your next meal.</T>
                 </Text>
               </View>
             )}

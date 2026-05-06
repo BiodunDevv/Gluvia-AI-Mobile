@@ -11,7 +11,14 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export interface FoodDetailModalProps {
@@ -184,28 +191,28 @@ export function FoodDetailModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType={Platform.OS === "android" ? "fade" : "slide"}
+      presentationStyle={Platform.OS === "android" ? "fullScreen" : "pageSheet"}
       onRequestClose={onClose}
     >
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
         {/* Header */}
-        <View className="flex-row items-center justify-between border-b border-gray-100 px-5 md:px-8 py-3">
+        <View className="flex-row items-center justify-between border-b border-gray-100 bg-white px-4 py-3 md:px-8">
           <Pressable
             onPress={handleClose}
-            className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:bg-gray-200"
+            className="h-10 w-10 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <X size={20} color="#374151" />
           </Pressable>
-          <Text className="text-lg font-semibold text-gray-900">
+          <Text className="text-base font-bold text-gray-900">
             Food Details
           </Text>
-          <View className="w-10" />
+          <View className="h-10 w-10" />
         </View>
 
         <ScrollView
-          className="flex-1"
+          className="flex-1 bg-gray-50"
           showsVerticalScrollIndicator={false}
           contentContainerClassName="px-5 md:px-8 pt-4 pb-8"
         >
@@ -213,7 +220,7 @@ export function FoodDetailModal({
           <FoodImage imageUrl={food.imageUrl} category={food.category} />
 
           {/* Food name */}
-          <Text className="text-2xl font-bold text-gray-900 mb-1">
+          <Text className="mb-1 text-2xl font-bold tracking-tight text-gray-900">
             {food.localName}
           </Text>
           {food.canonicalName && food.canonicalName !== food.localName && (
@@ -236,10 +243,10 @@ export function FoodDetailModal({
           </View>
 
           {/* Nutrition info */}
-          <Text className="text-lg font-bold text-gray-900 mb-3">
+          <Text className="mb-3 text-lg font-bold text-gray-900">
             Nutrition per 100g
           </Text>
-          <View className="bg-gray-50 rounded-2xl p-4 mb-5">
+          <View className="mb-5 rounded-2xl border border-gray-100 bg-white p-4">
             <View className="flex-row flex-wrap">
               <View className="w-1/2 mb-4">
                 <Text className="text-xs text-gray-500 mb-1">Calories</Text>
@@ -347,7 +354,7 @@ export function FoodDetailModal({
               <Text className="text-lg font-bold text-gray-900 mb-3">
                 Portion Sizes
               </Text>
-              <View className="bg-gray-50 rounded-2xl p-4 mb-5">
+              <View className="mb-5 rounded-2xl border border-gray-100 bg-white p-4">
                 {food.portionSizes.map((portion, index) => (
                   <View
                     key={index}

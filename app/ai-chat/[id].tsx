@@ -1,11 +1,10 @@
 import { T, useTranslation } from "@/hooks/use-translation";
 import { AppLoader } from "@/components/ui";
-import { FoodDetailModal } from "@/components/modals";
 import { useChatStore, type ChatMessage } from "@/store/chat-store";
 import { useFoodStore, type Food } from "@/store/food-store";
 import { useSyncStore } from "@/store/sync-store";
 import * as Haptics from "expo-haptics";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Href, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ArrowDown,
@@ -170,6 +169,7 @@ function FoodCard({
   food: Food | null;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [remoteImage, setRemoteImage] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
 
@@ -190,7 +190,7 @@ function FoodCard({
 
   const giColor =
     gi == null ? "#9ca3af" : gi <= 55 ? "#10b981" : gi <= 69 ? "#f59e0b" : "#ef4444";
-  const giLabel = gi == null ? "GI N/A" : gi <= 55 ? "Low GI" : gi <= 69 ? "Mid GI" : "High GI";
+  const giLabel = gi == null ? t("GI N/A") : gi <= 55 ? t("Low GI") : gi <= 69 ? t("Mid GI") : t("High GI");
 
   return (
     <Pressable
@@ -241,11 +241,13 @@ function FoodCard({
         <View>
           {(calories != null || carbs != null) && (
             <Text style={{ fontSize: 10, color: "#6b7280" }} numberOfLines={1}>
-              {[calories != null && `${Math.round(calories)} kcal`, carbs != null && `${Math.round(carbs)}g carbs`].filter(Boolean).join(" · ")}
+              {[calories != null && `${Math.round(calories)} ${t("kcal")}`, carbs != null && `${Math.round(carbs)}g ${t("carbs")}`].filter(Boolean).join(" · ")}
             </Text>
           )}
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, gap: 2 }}>
-            <Text style={{ fontSize: 10, color: "#1447e6", fontWeight: "600" }}>Details</Text>
+            <Text style={{ fontSize: 10, color: "#1447e6", fontWeight: "600" }}>
+              <T>Details</T>
+            </Text>
             <ChevronRight size={9} color="#1447e6" />
           </View>
         </View>
@@ -794,15 +796,9 @@ export default function AIConversationScreen() {
   const activeIdRef = useRef<string>(id ?? "new");
   const isNewConversation = id === "new";
 
-  // Food detail modal state
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [foodModalVisible, setFoodModalVisible] = useState(false);
-
   const handleFoodPress = useCallback((food: Food | null, _name: string) => {
     if (!food) return;
-    // Set food first so the modal never renders with food=null while visible=true
-    setSelectedFood(food);
-    setTimeout(() => setFoodModalVisible(true), 0);
+    router.push(`/food-details/${food._id}` as Href);
   }, []);
 
   const headerTitle = useMemo(() => {
@@ -1132,13 +1128,6 @@ export default function AIConversationScreen() {
           </Text>
         </View>
       </KeyboardAvoidingView>
-
-      {/* ── Food Detail Modal ── */}
-      <FoodDetailModal
-        food={selectedFood}
-        visible={foodModalVisible}
-        onClose={() => { setFoodModalVisible(false); setSelectedFood(null); }}
-      />
     </SafeAreaView>
   );
 }

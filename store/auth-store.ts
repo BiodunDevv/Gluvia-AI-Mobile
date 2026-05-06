@@ -83,6 +83,7 @@ interface AuthState {
   expiresAt: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasCheckedAuth: boolean;
   isOffline: boolean;
   hasPendingUpdates: boolean;
   error: string | null;
@@ -172,6 +173,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   expiresAt: null,
   isLoading: false,
   isAuthenticated: false,
+  hasCheckedAuth: false,
   isOffline: false,
   hasPendingUpdates: false,
   error: null,
@@ -236,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token,
         expiresAt,
         isAuthenticated: true,
+        hasCheckedAuth: true,
         isOffline: false,
         isLoading: false,
       });
@@ -249,10 +252,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error(message);
       }
 
-      const { message } = showApiError(
-        error,
-        "Registration failed. Please try again."
-      );
+      const rawMessage: string =
+        error.response?.data?.message ||
+        error.response?.data?.error?.message ||
+        error.message ||
+        "";
+
+      const status = error.response?.status;
+      let title = "Registration Failed";
+      let message = "Something went wrong. Please try again.";
+
+      if (
+        rawMessage.toLowerCase().includes("email already") ||
+        rawMessage.toLowerCase().includes("already registered") ||
+        rawMessage.toLowerCase().includes("already in use") ||
+        status === 409
+      ) {
+        title = "Email Already Taken";
+        message =
+          "An account with this email already exists. Try signing in instead.";
+      } else if (status === 400 || status === 422) {
+        title = "Invalid Details";
+        message = rawMessage || "Please check your details and try again.";
+      } else if (
+        error.code === "ERR_NETWORK" ||
+        error.message === "Network Error"
+      ) {
+        title = "No Connection";
+        message = "Please check your internet connection and try again.";
+      } else if (status === 429) {
+        title = "Too Many Attempts";
+        message = "Please wait a moment before trying again.";
+      } else if (status && status >= 500) {
+        title = "Server Issue";
+        message = "We're having trouble right now. Please try again shortly.";
+      } else if (rawMessage) {
+        message = rawMessage;
+      }
+
+      toast.error(title, message);
       set({ error: message, isLoading: false });
       throw new Error(message);
     }
@@ -316,6 +354,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token,
         expiresAt,
         isAuthenticated: true,
+        hasCheckedAuth: true,
         isOffline: false,
         isLoading: false,
       });
@@ -377,6 +416,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             token: offlineSession.token,
             expiresAt: offlineSession.expiresAt,
             isAuthenticated: true,
+            hasCheckedAuth: true,
             isOffline: true,
             isLoading: false,
           });
@@ -418,6 +458,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: null,
         expiresAt: null,
         isAuthenticated: false,
+        hasCheckedAuth: true,
         isOffline: false,
         isLoading: false,
         error: null,
@@ -686,6 +727,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: null,
         expiresAt: null,
         isAuthenticated: false,
+        hasCheckedAuth: true,
         isOffline: false,
         isLoading: false,
         error: null,
@@ -732,6 +774,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           token,
           expiresAt,
           isAuthenticated: true,
+          hasCheckedAuth: true,
           isOffline: false,
           maintenanceMessage,
         });
@@ -744,6 +787,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Block admin access
         if (offlineSession.user.role === "admin") {
           await clearOfflineSession();
+          set({ isAuthenticated: false, hasCheckedAuth: true });
           return false;
         }
 
@@ -765,17 +809,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           token: offlineSession.token,
           expiresAt: offlineSession.expiresAt,
           isAuthenticated: true,
+          hasCheckedAuth: true,
           isOffline: true,
           maintenanceMessage,
         });
         return true;
       }
 
-      set({ isAuthenticated: false });
+      set({ isAuthenticated: false, hasCheckedAuth: true });
       return false;
     } catch (error) {
       console.error("Auth check failed:", error);
-      set({ isAuthenticated: false });
+      set({ isAuthenticated: false, hasCheckedAuth: true });
       return false;
     }
   },

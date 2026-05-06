@@ -4,28 +4,29 @@ import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth-store";
 import { Href, router } from "expo-router";
 import { ArrowRight, CheckCircle, Mail } from "lucide-react-native";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   Keyboard,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ForgotPasswordFormProps {
   onSuccess?: () => void;
+  footer?: ReactNode;
 }
 
-export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm({ onSuccess, footer }: ForgotPasswordFormProps) {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { requestPasswordReset, isLoading } = useAuthStore();
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const handleSubmit = async () => {
     Keyboard.dismiss();
@@ -37,7 +38,6 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
       toast.error("Invalid Email", "Please enter a valid email address");
       return;
     }
-
     await requestPasswordReset(email.trim().toLowerCase());
     setIsSubmitted(true);
     onSuccess?.();
@@ -45,8 +45,16 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
 
   if (isSubmitted) {
     return (
-      <View className="flex-1 justify-center pb-16">
-        <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-green-50 self-center">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingBottom: Math.max(insets.bottom, 24),
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="mb-6 h-20 w-20 items-center justify-center self-center rounded-full bg-green-50">
           <CheckCircle size={48} color="#22c55e" />
         </View>
         <Text className="mb-2 text-center text-[28px] font-bold tracking-tight text-gray-900">
@@ -58,43 +66,44 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
         <Text className="mb-8 text-center text-base font-semibold text-gray-900">
           {email}
         </Text>
+
+        <View className="mb-6 rounded-2xl bg-gray-50 p-4">
+          <Text className="text-center text-sm leading-5 text-gray-500">
+            <T>Check your spam folder. The email should arrive within a few minutes.</T>
+          </Text>
+        </View>
+
         <Button
           onPress={() => router.replace("/(auth)/login" as Href)}
-          className="w-full mb-4"
+          className="mb-3"
           icon={<ArrowRight size={18} color="#fff" />}
         >
           <T>Back to Sign In</T>
         </Button>
-        <TouchableOpacity
-          className="py-3"
-          onPress={() => setIsSubmitted(false)}
-          activeOpacity={0.7}
-        >
+
+        <TouchableOpacity className="py-3" onPress={() => setIsSubmitted(false)} activeOpacity={0.7}>
           <Text className="text-center text-sm font-semibold text-primary">
             <T>{"Didn't receive email? Try again"}</T>
           </Text>
         </TouchableOpacity>
-
-        <View className="mt-8 rounded-2xl bg-gray-50 p-4">
-          <Text className="text-center text-sm leading-5 text-gray-500">
-            <T>
-              Make sure to check your spam folder. The email should arrive
-              within a few minutes.
-            </T>
-          </Text>
-        </View>
-      </View>
+      </ScrollView>
     );
   }
 
   return (
-    <View>
-      {/* Email Input */}
-      <FormField label="Email" className="mb-6">
-        <View className="h-[52px] flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-4">
-          <Mail size={20} color="#71717b" />
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
+      {/* Email field */}
+      <FormField label="Email" className="mb-5">
+        <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+          <Mail size={18} color="#71717b" />
           <TextInput
-            className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
+            className="ml-2.5 flex-1 py-0 text-sm text-gray-900"
             placeholder="Enter your email"
             placeholderTextColor="#a1a1aa"
             value={email}
@@ -109,19 +118,19 @@ export function ForgotPasswordForm({ onSuccess }: ForgotPasswordFormProps) {
         </View>
       </FormField>
 
-      <View className="mb-6 rounded-2xl bg-gray-50 p-4">
+      {/* Helper card */}
+      <View className="mb-8 rounded-2xl bg-gray-50 p-4">
         <Text className="text-sm leading-6 text-gray-600">
-          <T>
-            Enter the email linked to your account and we will send a secure
-            password reset link.
-          </T>
+          <T>Use the same email linked to your Gluvia account. We will help you get back in securely.</T>
         </Text>
       </View>
 
-      {/* Submit Button */}
-      <Button onPress={handleSubmit} loading={isLoading} disabled={isLoading}>
+      {/* Send button — flows right after helper */}
+      <Button onPress={handleSubmit} loading={isLoading} disabled={isLoading} className="mb-4">
         <T>Send Reset Link</T>
       </Button>
-    </View>
+
+      {footer ? <View>{footer}</View> : null}
+    </ScrollView>
   );
 }

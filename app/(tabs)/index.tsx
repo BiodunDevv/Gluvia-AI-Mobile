@@ -483,27 +483,27 @@ export default function HomeScreen() {
   const getGlucoseStatus = (value: number) => {
     if (value < 70)
       return {
-        label: "Low",
+        label: t("Low"),
         color: "#ef4444",
         bg: "bg-red-50",
         icon: TrendingDown,
       };
     if (value <= 100)
       return {
-        label: "Normal",
+        label: t("Normal"),
         color: "#10b981",
         bg: "bg-emerald-50",
         icon: Target,
       };
     if (value <= 125)
       return {
-        label: "Elevated",
+        label: t("Elevated"),
         color: "#f59e0b",
         bg: "bg-amber-50",
         icon: TrendingUp,
       };
     return {
-      label: "High",
+      label: t("High"),
       color: "#ef4444",
       bg: "bg-red-50",
       icon: AlertCircle,
@@ -709,7 +709,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <Text className="text-2xl font-bold text-gray-900">
-                {user?.name?.split(" ")[0] || "Welcome"}
+                {user?.name?.split(" ")[0] || <T>Welcome</T>}
               </Text>
             </View>
 
@@ -818,7 +818,7 @@ export default function HomeScreen() {
                     minute: "2-digit",
                   })}
                   {latestGlucoseReading.type && (
-                    <Text> • {latestGlucoseReading.type.replace(/_/g, " ")}</Text>
+                    <Text> • {t(latestGlucoseReading.type.replace(/_/g, " "))}</Text>
                   )}
                 </Text>
 
@@ -981,7 +981,9 @@ export default function HomeScreen() {
                     <Text className="text-sm font-semibold text-gray-900">
                       {item.name}
                     </Text>
-                    <Text className="text-xs text-gray-500">{item.category}</Text>
+                    <Text className="text-xs text-gray-500">
+                      <T>{item.category}</T>
+                    </Text>
                   </View>
                   <Text className="text-xs font-medium text-gray-600">
                     {Math.round(item.carbs * 10) / 10}g <T>carbs</T>

@@ -6,6 +6,7 @@
  */
 
 import { Button } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { useAuthStore } from "@/store/auth-store";
 import {
   GlucoseReadingType,
@@ -42,13 +43,13 @@ import Animated, { FadeIn, FadeInUp, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Reading type options with icons and descriptions
-const READING_TYPES: Array<{
+const READING_TYPES: {
   value: GlucoseReadingType;
   label: string;
   description: string;
   icon: any;
   color: string;
-}> = [
+}[] = [
   {
     value: "fasting",
     label: "Fasting",
@@ -94,12 +95,12 @@ const READING_TYPES: Array<{
 ];
 
 // Symptom options
-const SYMPTOM_OPTIONS: Array<{
+const SYMPTOM_OPTIONS: {
   value: GlucoseSymptom;
   label: string;
   icon: any;
   color: string;
-}> = [
+}[] = [
   { value: "none", label: "No Symptoms", icon: Check, color: "#22c55e" },
   { value: "dizzy", label: "Dizzy", icon: AlertCircle, color: "#f59e0b" },
   { value: "shaky", label: "Shaky", icon: Activity, color: "#ef4444" },
@@ -168,6 +169,7 @@ export function LogGlucoseModal({
   onSuccess,
   linkedMealId,
 }: LogGlucoseModalProps) {
+  const { t } = useTranslation();
   const { logGlucoseReading, isUploading } = useSyncStore();
   const { user } = useAuthStore();
 
@@ -211,17 +213,17 @@ export function LogGlucoseModal({
     const value = parseFloat(glucoseValue);
 
     if (!glucoseValue || isNaN(value)) {
-      setError("Please enter a valid glucose value");
+      setError(t("Please enter a valid glucose value"));
       return;
     }
 
     if (value < 20 || value > 600) {
-      setError("Glucose value must be between 20 and 600 mg/dL");
+      setError(t("Glucose value must be between 20 and 600 mg/dL"));
       return;
     }
 
     if (!user?._id) {
-      setError("User not logged in");
+      setError(t("User not logged in"));
       return;
     }
 
@@ -247,7 +249,7 @@ export function LogGlucoseModal({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to log glucose reading");
+      setError(err.message || t("Failed to log glucose reading"));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
@@ -273,7 +275,9 @@ export function LogGlucoseModal({
           >
             <X size={20} color="#374151" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-gray-900">Log Glucose</Text>
+          <Text className="text-lg font-bold text-gray-900">
+            <T>Log Glucose</T>
+          </Text>
           <View className="w-10" />
         </View>
 
@@ -287,7 +291,7 @@ export function LogGlucoseModal({
             {/* Glucose Value Input */}
             <Animated.View entering={FadeInUp.delay(100)} className="px-6 pt-6">
               <Text className="text-sm font-semibold text-gray-600 mb-3">
-                Blood Glucose Reading
+                <T>Blood Glucose Reading</T>
               </Text>
               <View className="flex-row items-center">
                 <View className="flex-1 flex-row items-center bg-gray-50 rounded-2xl px-4 py-3 border border-gray-200">
@@ -365,10 +369,10 @@ export function LogGlucoseModal({
                         className="font-semibold"
                         style={{ color: interpretation.color }}
                       >
-                        {interpretation.label}
+                        <T>{interpretation.label}</T>
                       </Text>
                       <Text className="text-xs text-gray-600 mt-0.5">
-                        {interpretation.message}
+                        <T>{interpretation.message}</T>
                       </Text>
                     </View>
                   </View>
@@ -379,7 +383,7 @@ export function LogGlucoseModal({
             {/* Reading Type Selection */}
             <Animated.View entering={FadeInUp.delay(200)} className="px-6 pt-6">
               <Text className="text-sm font-semibold text-gray-600 mb-3">
-                When did you take this reading?
+                <T>When did you take this reading?</T>
               </Text>
               <View className="flex-row flex-wrap">
                 {READING_TYPES.map((type) => {
@@ -410,7 +414,7 @@ export function LogGlucoseModal({
                         }`}
                         numberOfLines={1}
                       >
-                        {type.label}
+                        <T>{type.label}</T>
                       </Text>
                     </TouchableOpacity>
                   );
@@ -421,7 +425,7 @@ export function LogGlucoseModal({
             {/* Symptoms Selection */}
             <Animated.View entering={FadeInUp.delay(300)} className="px-6 pt-6">
               <Text className="text-sm font-semibold text-gray-600 mb-3">
-                How are you feeling?
+                <T>How are you feeling?</T>
               </Text>
               <View className="flex-row flex-wrap">
                 {SYMPTOM_OPTIONS.map((symptom) => {
@@ -449,7 +453,7 @@ export function LogGlucoseModal({
                             : "text-gray-600"
                         }`}
                       >
-                        {symptom.label}
+                        <T>{symptom.label}</T>
                       </Text>
                     </TouchableOpacity>
                   );
@@ -460,11 +464,11 @@ export function LogGlucoseModal({
             {/* Notes */}
             <Animated.View entering={FadeInUp.delay(400)} className="px-6 pt-6">
               <Text className="text-sm font-semibold text-gray-600 mb-3">
-                Notes (Optional)
+                <T>Notes (Optional)</T>
               </Text>
               <TextInput
                 className="bg-gray-50 rounded-xl px-4 py-3 text-gray-900 border border-gray-200 min-h-[80px]"
-                placeholder="Add any notes about this reading..."
+                placeholder={t("Add any notes about this reading...")}
                 placeholderTextColor="#9ca3af"
                 value={notes}
                 onChangeText={setNotes}
@@ -496,7 +500,7 @@ export function LogGlucoseModal({
             loading={isUploading}
             disabled={isUploading || !glucoseValue}
           >
-            Log Reading
+            {t("Log Reading")}
           </Button>
         </View>
       </SafeAreaView>

@@ -4,19 +4,27 @@ import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth-store";
 import { Href, router } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
-import { useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import {
   Keyboard,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export function LoginForm() {
+interface LoginFormProps {
+  footer?: ReactNode;
+}
+
+export function LoginForm({ footer }: LoginFormProps) {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef<TextInput>(null);
   const { login, isLoading, clearError, maintenanceMessage } = useAuthStore();
 
   const handleLogin = async () => {
@@ -29,88 +37,90 @@ export function LoginForm() {
       toast.error("Missing Password", "Please enter your password");
       return;
     }
-
     try {
       clearError();
       await login({ email: email.trim().toLowerCase(), password });
-      if (maintenanceMessage) {
-        router.replace("/maintenance" as Href);
-      } else {
-        router.replace("/current-user" as Href);
-      }
+      router.replace((maintenanceMessage ? "/maintenance" : "/current-user") as Href);
     } catch {
-      // Error is already handled by the store with toast
+      // handled by store
     }
   };
 
   return (
-    <View className="flex-1">
-      {/* Form Fields */}
-      <View>
-        {/* Email Input */}
-        <FormField label="Email" className="mb-4">
-          <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-            <Mail size={20} color="#71717b" />
-            <TextInput
-              className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-              placeholder="Enter your email"
-              placeholderTextColor="#a1a1aa"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              returnKeyType="next"
-            />
-          </View>
-        </FormField>
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
+      {/* Email */}
+      <FormField label="Email" className="mb-4">
+        <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+          <Mail size={18} color="#71717b" />
+          <TextInput
+            className="ml-2.5 flex-1 py-0 text-sm text-gray-900"
+            placeholder="Enter your email"
+            placeholderTextColor="#a1a1aa"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordInputRef.current?.focus()}
+          />
+        </View>
+      </FormField>
 
-        {/* Password Input */}
-        <FormField label="Password" className="mb-3">
-          <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-            <Lock size={20} color="#71717b" />
-            <TextInput
-              className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-              placeholder="Enter your password"
-              placeholderTextColor="#a1a1aa"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoComplete="password"
-              returnKeyType="done"
-              onSubmitEditing={handleLogin}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeOff size={20} color="#71717b" />
-              ) : (
-                <Eye size={20} color="#71717b" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </FormField>
+      {/* Password */}
+      <FormField label="Password" className="mb-3">
+        <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+          <Lock size={18} color="#71717b" />
+          <TextInput
+            ref={passwordInputRef}
+            className="ml-2.5 flex-1 py-0 text-sm text-gray-900"
+            placeholder="Enter your password"
+            placeholderTextColor="#a1a1aa"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoComplete="password"
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword((v) => !v)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            {showPassword ? (
+              <EyeOff size={18} color="#71717b" />
+            ) : (
+              <Eye size={18} color="#71717b" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </FormField>
 
-        {/* Forgot Password */}
-        <TouchableOpacity
-          className="self-end"
-          onPress={() => router.push("/(auth)/forgot-password" as Href)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text className="text-sm font-semibold text-primary">
-            <T>Forgot password?</T>
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Forgot password */}
+      <TouchableOpacity
+        className="self-end mb-8"
+        onPress={() => router.push("/(auth)/forgot-password" as Href)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Text className="text-sm font-semibold text-primary">
+          <T>Forgot password?</T>
+        </Text>
+      </TouchableOpacity>
 
-      {/* Spacer */}
-      <View className="flex-1" />
-
-      {/* Sign In Button */}
-      <Button onPress={handleLogin} loading={isLoading} disabled={isLoading}>
+      {/* Sign in button — flows right after the last input */}
+      <Button onPress={handleLogin} loading={isLoading} disabled={isLoading} className="mb-4">
         <T>Sign In</T>
       </Button>
-    </View>
+
+      {footer ? <View>{footer}</View> : null}
+    </ScrollView>
   );
 }

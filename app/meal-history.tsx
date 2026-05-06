@@ -1,7 +1,7 @@
 import { AppLoader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { getPendingMealLogs } from "@/lib/offline-db";
-import { T } from "@/hooks/use-translation";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { useAuthStore } from "@/store/auth-store";
 import { useSyncStore } from "@/store/sync-store";
 import type {
@@ -92,6 +92,7 @@ function getGlucoseStatus(value: number) {
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function UserLogsScreen() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const isOnline = useSyncStore((s) => s.isOnline);
 
@@ -219,13 +220,13 @@ export default function UserLogsScreen() {
           err?.response?.data?.error?.message ||
           err?.message ||
           "Failed to load logs";
-        setFetchError(msg);
+        setFetchError(t(msg));
       } finally {
         setIsLoading(false);
         fetchingRef.current = false;
       }
     },
-    [isOnline, user?._id]
+    [isOnline, t, user?._id]
   );
 
   // Fetch fresh from endpoint every time the screen comes into focus
@@ -308,11 +309,11 @@ export default function UserLogsScreen() {
           <View className="flex-row items-center">
             <Calendar size={15} color="#6b7280" />
             <Text className="ml-2 text-sm font-semibold text-gray-800">
-              {item.label}
+              <T>{item.label}</T>
             </Text>
           </View>
           <Text className="text-xs text-gray-400">
-            {Math.round(item.totalCalories)} cal · {Math.round(item.totalCarbs)}g carbs
+            {Math.round(item.totalCalories)} <T>cal</T> · {Math.round(item.totalCarbs)}g <T>carbs</T>
           </Text>
         </View>
 
@@ -338,7 +339,7 @@ export default function UserLogsScreen() {
                   {/* Header row */}
                   <View className="flex-row items-center justify-between">
                     <Text className="text-base font-bold capitalize text-gray-900">
-                      {meal.mealType}
+                      <T>{meal.mealType}</T>
                     </Text>
                     <Text className="text-xs text-gray-400">
                       {new Date(meal.timestamp).toLocaleTimeString([], {
@@ -358,21 +359,21 @@ export default function UserLogsScreen() {
                         .map((e) => e.foodId?.localName)
                         .filter(Boolean)
                         .join(", ") ||
-                        `${meal.entries.length} item${meal.entries.length !== 1 ? "s" : ""}`}
+                        `${meal.entries.length} ${t(meal.entries.length !== 1 ? "items" : "item")}`}
                     </Text>
                   )}
 
                   {/* Macro pills */}
                   <View className="mt-2 flex-row flex-wrap gap-x-3">
                     <Text className="text-xs font-semibold text-primary">
-                      {Math.round(meal.calculatedTotals?.calories || 0)} kcal
+                      {Math.round(meal.calculatedTotals?.calories || 0)} <T>kcal</T>
                     </Text>
                     <Text className="text-xs text-gray-500">
-                      {Math.round(meal.calculatedTotals?.carbs || 0)}g carbs
+                      {Math.round(meal.calculatedTotals?.carbs || 0)}g <T>carbs</T>
                     </Text>
                     {(meal.calculatedTotals?.protein || 0) > 0 && (
                       <Text className="text-xs text-gray-500">
-                        {Math.round(meal.calculatedTotals.protein)}g protein
+                        {Math.round(meal.calculatedTotals.protein)}g <T>protein</T>
                       </Text>
                     )}
                   </View>
@@ -398,7 +399,7 @@ export default function UserLogsScreen() {
                               <Text className="text-xs text-gray-400">
                                 {entry.portionName ||
                                   entry.portionSize ||
-                                  "1 serving"}
+                                  t("1 serving")}
                               </Text>
                               <Text className="text-xs font-semibold text-gray-600">
                                 ×{entry.quantity || 1}
@@ -429,11 +430,11 @@ export default function UserLogsScreen() {
         <View className="flex-row items-center">
           <Calendar size={15} color="#6b7280" />
           <Text className="ml-2 text-sm font-semibold text-gray-800">
-            {item.label}
+            <T>{item.label}</T>
           </Text>
         </View>
         <Text className="text-xs text-gray-400">
-          {item.readings.length} reading{item.readings.length !== 1 ? "s" : ""}
+          {item.readings.length} <T>{item.readings.length !== 1 ? "readings" : "reading"}</T>
         </Text>
       </View>
 
@@ -465,7 +466,7 @@ export default function UserLogsScreen() {
                       </Text>
                     </Text>
                     <Text className="mt-0.5 text-sm capitalize text-gray-500">
-                      {(reading.type || "random").replace(/_/g, " ")}
+                      {t((reading.type || "random").replace(/_/g, " "))}
                     </Text>
                   </View>
 
@@ -478,7 +479,7 @@ export default function UserLogsScreen() {
                       className="ml-1 text-xs font-bold"
                       style={{ color: status.textColor }}
                     >
-                      {status.label}
+                      <T>{status.label}</T>
                     </Text>
                   </View>
                 </View>
@@ -495,7 +496,7 @@ export default function UserLogsScreen() {
 
                 {reading.symptoms && reading.symptoms.length > 0 && (
                   <Text className="mt-2 text-xs text-gray-500">
-                    Symptoms: {reading.symptoms.join(", ")}
+                    <T>Symptoms</T>: {reading.symptoms.join(", ")}
                   </Text>
                 )}
 
@@ -649,10 +650,10 @@ export default function UserLogsScreen() {
             {activeTab === "meals" ? (
               <View className="items-end">
                 <Text className="text-sm font-semibold text-gray-700">
-                  {Math.round(totals.mealCalories)} cal
+                  {Math.round(totals.mealCalories)} <T>cal</T>
                 </Text>
                 <Text className="mt-0.5 text-sm text-gray-400">
-                  {Math.round(totals.mealCarbs)}g carbs
+                  {Math.round(totals.mealCarbs)}g <T>carbs</T>
                 </Text>
               </View>
             ) : (
@@ -666,7 +667,7 @@ export default function UserLogsScreen() {
                         month: "short",
                         day: "numeric",
                       })
-                    : "No readings"}
+                    : t("No readings")}
                 </Text>
               </View>
             )}

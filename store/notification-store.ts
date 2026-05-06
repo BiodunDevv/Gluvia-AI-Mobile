@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 import { create } from "zustand";
 
 export interface AppNotification {
@@ -43,6 +44,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   lastFetchedAt: null,
 
   fetchNotifications: async (params = {}, options = {}) => {
+    if (useAuthStore.getState().maintenanceMessage) {
+      set({ isLoading: false, isLoadingMore: false });
+      return;
+    }
+
     const { silent = false, force = false, append = false } = options;
     const state = get();
     const isDefaultList = !params.page || params.page === 1;
@@ -81,8 +87,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         isLoading: false,
         isLoadingMore: false,
       });
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
+    } catch (error: any) {
+      if (error?.response?.status !== 503) {
+        console.error("Failed to fetch notifications:", error);
+      }
       set({ isLoading: false, isLoadingMore: false });
     }
   },

@@ -1,5 +1,12 @@
 import { X } from "lucide-react-native";
-import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface LegalModalProps {
@@ -15,8 +22,8 @@ export function LegalModal({ visible, onClose, type }: LegalModalProps) {
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType={Platform.OS === "android" ? "fade" : "slide"}
+      presentationStyle={Platform.OS === "android" ? "fullScreen" : "pageSheet"}
       onRequestClose={onClose}
     >
       <View
@@ -68,7 +75,9 @@ function TermsContent() {
       </Text>
 
       <Section title="1. Acceptance of Terms">
-        {'By accessing or using Gluvia AI ("the App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the App.'}
+        {
+          'By accessing or using Gluvia AI ("the App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the App.'
+        }
       </Section>
 
       <Section title="2. Description of Service">
@@ -171,7 +180,8 @@ function PrivacyContent() {
         Under the Nigeria Data Protection Regulation (NDPR), you have the right
         to access, correct, or delete your personal data. You can export your
         data or request account deletion at any time from Profile in the app or
-        through the verified web request page at gluvia.vercel.app/delete-account.
+        through the verified web request page at
+        gluvia.vercel.app/delete-account.
       </Section>
 
       <Section title="7. Data Retention">

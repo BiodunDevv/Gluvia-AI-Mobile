@@ -5,6 +5,7 @@ import {
   SupportedLanguage,
   translateText,
 } from "@/lib/translations";
+import { translateDynamicText } from "@/lib/translator";
 import { useTranslationStore } from "@/store/translation-store";
 
 export function useTranslation() {
@@ -26,13 +27,37 @@ export function T({
 }: {
   children: string | number;
 }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
+  const [dynamicText, setDynamicText] = React.useState<string | null>(null);
+  const sourceText = typeof children === "string" ? children : null;
+  const translated = sourceText ? t(sourceText) : String(children);
 
-  if (typeof children === "number") {
-    return <>{children}</>;
-  }
+  React.useEffect(() => {
+    let cancelled = false;
 
-  return <>{t(children)}</>;
+    if (!sourceText || language === "english" || translated !== sourceText) {
+      setDynamicText(null);
+      return;
+    }
+
+    translateDynamicText(sourceText, language)
+      .then((value) => {
+        if (!cancelled) {
+          setDynamicText(value === sourceText ? null : value);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDynamicText(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, sourceText, translated]);
+
+  return <>{sourceText ? dynamicText || translated : children}</>;
 }
 
 export type { SupportedLanguage };

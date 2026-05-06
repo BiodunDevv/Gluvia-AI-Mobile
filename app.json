@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "gluvia-ai",
+    "name": "Gluvia AI",
     "slug": "gluvia-ai",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "gluviaai",
@@ -21,11 +21,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "POST_NOTIFICATIONS"
       ],
-      "package": "com.biodun42.gluviaai"
+      "package": "com.biodun42.gluviaai",
+      "versionCode": 30
     },
     "web": {
       "output": "static",

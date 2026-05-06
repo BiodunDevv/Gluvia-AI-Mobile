@@ -6,6 +6,7 @@
  */
 
 import { Href, router } from "expo-router";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { Coffee, Cookie, Moon, Sun } from "lucide-react-native";
 import { Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp } from "react-native-reanimated";
@@ -23,7 +24,7 @@ export interface MealLogItem {
   clientGeneratedId?: string;
   mealType: "breakfast" | "lunch" | "dinner" | "snack";
   timestamp: string;
-  entries?: Array<any>;
+  entries?: any[];
   calculatedTotals?: {
     calories?: number;
     carbs?: number;
@@ -43,6 +44,7 @@ export interface RecentMealsCardProps {
 function MealItem({ meal, isLast }: { meal: MealLogItem; isLast: boolean }) {
   const mealConfig = MEAL_ICONS[meal.mealType] || MEAL_ICONS.snack;
   const Icon = mealConfig.icon;
+  const { t } = useTranslation();
 
   return (
     <View
@@ -58,11 +60,11 @@ function MealItem({ meal, isLast }: { meal: MealLogItem; isLast: boolean }) {
       </View>
       <View className="flex-1 ml-3">
         <Text className="font-semibold text-gray-900 capitalize">
-          {meal.mealType}
+          {t(meal.mealType)}
         </Text>
         <Text className="text-xs text-gray-500">
-          {meal.entries?.length || 0} items •{" "}
-          {Math.round(meal.calculatedTotals?.calories || 0)} cal
+          {meal.entries?.length || 0} <T>items</T> •{" "}
+          {Math.round(meal.calculatedTotals?.calories || 0)} <T>cal</T>
         </Text>
       </View>
       <Text className="text-xs text-gray-400">
@@ -98,7 +100,9 @@ export function RecentMealsCard({
             onPress={() => router.push("/meal-history" as Href)}
             activeOpacity={0.7}
           >
-            <Text className="text-sm text-primary font-medium">See All</Text>
+            <Text className="text-sm text-primary font-medium">
+              <T>See All</T>
+            </Text>
           </TouchableOpacity>
         )}
       </View>

@@ -4,6 +4,7 @@ import {
   SearchFoodModal,
 } from "@/components/modals";
 import { AppLoader, AppScreenHeader } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import { api } from "@/lib/api";
 import {
   Food,
@@ -86,6 +87,7 @@ function MealTypeControl({
   value: MealType;
   onChange: (mealType: MealType) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="border-b border-gray-200 bg-white">
       <ScrollView
@@ -116,7 +118,7 @@ function MealTypeControl({
                   active ? "text-primary" : "text-gray-700"
                 }`}
               >
-                {info.title}
+                {t(info.title)}
               </Text>
             </Pressable>
           );
@@ -135,6 +137,7 @@ function FoodRow({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [imageError, setImageError] = useState(false);
   const gi = getGICategory(food.nutrients.gi);
 
@@ -168,7 +171,7 @@ function FoodRow({
                 {food.localName}
               </Text>
               <Text className="mt-0.5 text-xs text-gray-500" numberOfLines={1}>
-                {food.suggestedPortion.name} - {food.suggestedPortion.grams}g
+                {t(food.suggestedPortion.name)} - {food.suggestedPortion.grams}g
               </Text>
             </View>
             <View
@@ -189,10 +192,10 @@ function FoodRow({
               {Math.round(
                 (food.nutrients.calories * food.suggestedPortion.grams) / 100
               )}{" "}
-              cal
+              <T>cal</T>
             </Text>
             <Text className="mr-3 text-xs text-gray-600">
-              {Math.round(food.suggestedPortion.carbs_g * 10) / 10}g carbs
+              {Math.round(food.suggestedPortion.carbs_g * 10) / 10}g <T>carbs</T>
             </Text>
             <Text className="text-xs font-medium" style={{ color: gi.color }}>
               GI {food.nutrients.gi ?? "?"}
@@ -217,6 +220,7 @@ function RecommendationGroup({
   onToggleFood: (food: RecommendedFood) => void;
   defaultOpen?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
 
   if (foods.length === 0) return null;
@@ -228,7 +232,9 @@ function RecommendationGroup({
         className="flex-row items-center justify-between px-3 py-3"
       >
         <View className="flex-row items-center">
-          <Text className="text-base font-semibold text-gray-900">{title}</Text>
+          <Text className="text-base font-semibold text-gray-900">
+            {t(title)}
+          </Text>
           <Text className="ml-2 text-xs text-gray-500">{foods.length}</Text>
         </View>
         <ChevronDown
@@ -264,6 +270,7 @@ function renderFoodCardForSearch(
 
 export default function MealRecommendationScreen() {
   const params = useLocalSearchParams<{ mealType?: string }>();
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const {
     foods,
@@ -294,6 +301,10 @@ export default function MealRecommendationScreen() {
   const [variationSeed, setVariationSeed] = useState(0);
 
   const mealInfo = getMealTypeInfo(mealType);
+  const mealSubtitle = useMemo(
+    () => t(getTimeContextMessage(mealType)),
+    [mealType, t]
+  );
   const mealConfig = MEAL_CONFIG[mealType];
   const lastGlucoseValue = lastGlucoseReading?.valueMgDl;
 
@@ -384,7 +395,7 @@ export default function MealRecommendationScreen() {
         setInsight({
           explanation:
             recommendation.tips?.[0] ||
-            "This meal is selected from your profile, glucose context, and the current meal type.",
+            t("This meal is selected from your profile, glucose context, and the current meal type."),
           source: "fallback",
         });
         return;
@@ -407,7 +418,7 @@ export default function MealRecommendationScreen() {
         setInsight({
           explanation:
             recommendation.tips?.[0] ||
-            "This meal is selected from your profile, glucose context, and the current meal type.",
+            t("This meal is selected from your profile, glucose context, and the current meal type."),
           source: "fallback",
         });
       } finally {
@@ -416,7 +427,7 @@ export default function MealRecommendationScreen() {
     };
 
     loadInsight();
-  }, [isOnline, lastGlucoseValue, mealType, recommendation, showInsight, user?.profile]);
+  }, [isOnline, lastGlucoseValue, mealType, recommendation, showInsight, t, user?.profile]);
 
   const toggleFood = useCallback((food: RecommendedFood) => {
     Haptics.selectionAsync().catch(() => {});
@@ -483,14 +494,14 @@ export default function MealRecommendationScreen() {
 
       setSelectedFoods([]);
       setShowSummary(false);
-      Alert.alert("Meal logged", "Would you like to log your glucose reading?", [
-        { text: "Later", style: "cancel" },
-        { text: "Log Glucose", onPress: () => setShowGlucoseModal(true) },
+      Alert.alert(t("Meal logged"), t("Would you like to log your glucose reading?"), [
+        { text: t("Later"), style: "cancel" },
+        { text: t("Log Glucose"), onPress: () => setShowGlucoseModal(true) },
       ]);
     } catch (error) {
       console.error("Failed to log meal:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      Alert.alert("Meal not logged", "Please try again.");
+      Alert.alert(t("Meal not logged"), t("Please try again."));
     } finally {
       setIsLoggingMeal(false);
     }
@@ -501,8 +512,8 @@ export default function MealRecommendationScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <AppScreenHeader
-        title="Build Meal"
-        subtitle={getTimeContextMessage(mealType)}
+        title={t("Build Meal")}
+        subtitle={mealSubtitle}
         onBack={handleBack}
         rightSlot={
           <View className="flex-row">
@@ -533,7 +544,9 @@ export default function MealRecommendationScreen() {
       {isLoading && !recommendation ? (
         <View className="flex-1 items-center justify-center">
           <AppLoader size="lg" color="#1447e6" />
-          <Text className="mt-4 text-sm text-gray-500">Loading foods...</Text>
+          <Text className="mt-4 text-sm text-gray-500">
+            <T>Loading foods...</T>
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -548,15 +561,17 @@ export default function MealRecommendationScreen() {
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-3">
                 <Text className="text-lg font-semibold text-gray-900">
-                  {mealInfo.title}
+                  {t(mealInfo.title)}
                 </Text>
                 <Text className="mt-1 text-sm text-gray-500">
-                  Target {mealInfo.carbRange.min}-{mealInfo.carbRange.max}g carbs
+                  <T>Target</T> {mealInfo.carbRange.min}-{mealInfo.carbRange.max}g <T>carbs</T>
                 </Text>
               </View>
               {lastGlucoseReading ? (
                 <View className="items-end">
-                  <Text className="text-xs text-gray-500">Last glucose</Text>
+                  <Text className="text-xs text-gray-500">
+                    <T>Last glucose</T>
+                  </Text>
                   <Text className="text-base font-semibold text-gray-900">
                     {lastGlucoseReading.valueMgDl} {lastGlucoseReading.unit}
                   </Text>
@@ -566,7 +581,9 @@ export default function MealRecommendationScreen() {
                   onPress={() => setShowGlucoseModal(true)}
                   className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2"
                 >
-                  <Text className="text-xs font-medium text-primary">Log glucose</Text>
+                  <Text className="text-xs font-medium text-primary">
+                    <T>Log glucose</T>
+                  </Text>
                 </Pressable>
               )}
             </View>
@@ -574,19 +591,25 @@ export default function MealRecommendationScreen() {
             {selectedFoods.length > 0 ? (
               <View className="mt-4 flex-row rounded-xl border border-primary/10 bg-primary/5 p-3">
                 <View className="flex-1">
-                  <Text className="text-xs text-gray-500">Selected</Text>
+                  <Text className="text-xs text-gray-500">
+                    <T>Selected</T>
+                  </Text>
                   <Text className="text-base font-semibold text-primary">
-                    {selectedFoods.length} items
+                    {selectedFoods.length} <T>items</T>
                   </Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs text-gray-500">Carbs</Text>
+                  <Text className="text-xs text-gray-500">
+                    <T>Carbs</T>
+                  </Text>
                   <Text className="text-base font-semibold text-gray-900">
                     {Math.round(selectedTotals.carbs * 10) / 10}g
                   </Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs text-gray-500">Calories</Text>
+                  <Text className="text-xs text-gray-500">
+                    <T>Calories</T>
+                  </Text>
                   <Text className="text-base font-semibold text-gray-900">
                     {selectedTotals.calories}
                   </Text>
@@ -604,7 +627,7 @@ export default function MealRecommendationScreen() {
                 >
                   <AlertCircle size={18} color="#d97706" />
                   <Text className="ml-2 flex-1 text-sm leading-5 text-amber-800">
-                    {alert.message}
+                    {t(alert.message)}
                   </Text>
                 </View>
               ))}
@@ -616,7 +639,7 @@ export default function MealRecommendationScreen() {
               <View className="flex-row items-center">
                 <ListChecks size={18} color="#1447e6" />
                 <Text className="ml-2 text-lg font-semibold text-gray-900">
-                  Recommended foods
+                  <T>Recommended foods</T>
                 </Text>
               </View>
               <Pressable
@@ -672,7 +695,7 @@ export default function MealRecommendationScreen() {
                 <View className="flex-row items-center">
                   <Sparkles size={17} color="#1447e6" />
                   <Text className="ml-2 text-sm font-semibold text-gray-900">
-                    Recommendation insight
+                    <T>Recommendation insight</T>
                   </Text>
                 </View>
                 <ChevronRight
@@ -688,13 +711,13 @@ export default function MealRecommendationScreen() {
                     <View className="flex-row items-center">
                       <AppLoader size="sm" color="#1447e6" />
                       <Text className="ml-2 text-sm text-gray-500">
-                        Preparing insight...
+                        <T>Preparing insight...</T>
                       </Text>
                     </View>
                   ) : (
                     <Text className="text-sm leading-6 text-gray-700">
                       {insight?.explanation ||
-                        "Open this after choosing a food to understand the recommendation."}
+                        t("Open this after choosing a food to understand the recommendation.")}
                     </Text>
                   )}
                 </View>
@@ -712,10 +735,12 @@ export default function MealRecommendationScreen() {
         >
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-xs text-gray-500">Meal draft</Text>
+              <Text className="text-xs text-gray-500">
+                <T>Meal draft</T>
+              </Text>
               <Text className="text-base font-semibold text-gray-900">
-                {Math.round(selectedTotals.carbs * 10) / 10}g carbs -{" "}
-                {selectedTotals.calories} cal
+                {Math.round(selectedTotals.carbs * 10) / 10}g <T>carbs</T> -{" "}
+                {selectedTotals.calories} <T>cal</T>
               </Text>
             </View>
             <Pressable
@@ -723,7 +748,9 @@ export default function MealRecommendationScreen() {
               className="flex-row items-center rounded-xl bg-primary px-4 py-3"
             >
               <Check size={17} color="#ffffff" />
-              <Text className="ml-2 font-semibold text-white">Review</Text>
+              <Text className="ml-2 font-semibold text-white">
+                <T>Review</T>
+              </Text>
             </Pressable>
           </View>
         </Animated.View>

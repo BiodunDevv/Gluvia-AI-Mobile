@@ -51,11 +51,13 @@ api.interceptors.response.use(
     if (error.response?.status === 503) {
       const code = error.response?.data?.error?.code;
       if (code === "MAINTENANCE_MODE") {
-        await AsyncStorage.setItem(
-          "@maintenance_message",
+        const message =
           error.response?.data?.error?.message ||
-            "The app is temporarily unavailable for maintenance."
-        );
+          "The app is temporarily unavailable for maintenance.";
+        await AsyncStorage.setItem("@maintenance_message", message);
+
+        const { useAuthStore } = await import("@/store/auth-store");
+        await useAuthStore.getState().setMaintenanceMessage(message);
       }
     }
 
@@ -78,6 +80,7 @@ api.interceptors.response.use(
           token: null,
           expiresAt: null,
           isAuthenticated: false,
+          hasCheckedAuth: true,
           isOffline: false,
           error: null,
         });

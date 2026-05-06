@@ -8,8 +8,6 @@ import {
   ArrowRight,
   Check,
   CheckSquare,
-  Eye,
-  EyeOff,
   Lock,
   Mail,
   Phone,
@@ -20,11 +18,13 @@ import { useRef, useState } from "react";
 import {
   Animated,
   Keyboard,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegalModal } from "./legal-modal";
 import { StepIndicator } from "./step-indicator";
 
@@ -34,16 +34,43 @@ interface RegisterFormProps {
   onStepChange?: (step: number) => void;
 }
 
+function PasswordRequirement({
+  label,
+  valid,
+}: {
+  label: string;
+  valid: boolean;
+}) {
+  return (
+    <View className="mr-3 mb-2 flex-row items-center">
+      <View
+        className={`h-5 w-5 items-center justify-center rounded-full ${
+          valid ? "bg-emerald-500" : "bg-gray-200"
+        }`}
+      >
+        {valid && <Check size={12} color="#fff" />}
+      </View>
+      <Text
+        className={`ml-2 text-xs font-medium ${
+          valid ? "text-emerald-700" : "text-gray-500"
+        }`}
+      >
+        <T>{label}</T>
+      </Text>
+    </View>
+  );
+}
+
 export function RegisterForm({ onStepChange }: RegisterFormProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -51,6 +78,19 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const emailInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
+
+  const hasPasswordLength = password.length >= 8;
+  const hasPasswordLetter = /[A-Za-z]/.test(password);
+  const hasPasswordNumber = /\d/.test(password);
+  const passwordsMatch =
+    confirmPassword.length > 0 && password === confirmPassword;
+  const isPasswordValid =
+    hasPasswordLength && hasPasswordLetter && hasPasswordNumber;
+  const canContinuePasswordStep = isPasswordValid && passwordsMatch;
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,16 +101,16 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 150,
+        duration: 110,
         useNativeDriver: true,
       }),
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 150,
+        duration: 130,
         useNativeDriver: true,
       }),
     ]).start();
-    setTimeout(callback, 150);
+    setTimeout(callback, 110);
   };
 
   const handleNextStep = () => {
@@ -95,14 +135,14 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
         toast.error("Missing Information", "Please create a password");
         return;
       }
-      if (password.length < 8) {
+      if (!isPasswordValid) {
         toast.error(
           "Weak Password",
-          "Password must be at least 8 characters long"
+          "Use at least 8 characters with one letter and one number"
         );
         return;
       }
-      if (password !== confirmPassword) {
+      if (!passwordsMatch) {
         toast.error(
           "Password Mismatch",
           "The passwords you entered don't match"
@@ -116,6 +156,9 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
       animateTransition(() => {
         setCurrentStep(newStep);
         onStepChange?.(newStep);
+        if (newStep === 2) {
+          setTimeout(() => phoneInputRef.current?.focus(), 80);
+        }
       });
     }
   };
@@ -162,7 +205,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
   const getStepTitle = () => {
     switch (currentStep) {
       case 1:
-        return "Let's get started";
+        return "Create your account";
       case 2:
         return "Secure your account";
       case 3:
@@ -175,11 +218,11 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
   const getStepSubtitle = () => {
     switch (currentStep) {
       case 1:
-        return "Tell us a bit about yourself";
+        return "Add the details you will use to sign in.";
       case 2:
-        return "Create a strong password";
+        return "Use at least 8 characters with one letter and one number.";
       case 3:
-        return "Review and accept our terms";
+        return "Confirm your details and finish securely.";
       default:
         return "";
     }
@@ -192,10 +235,10 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Name Input */}
             <FormField label={t("Full Name")} className="mb-4">
-              <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-                <User size={20} color="#71717b" />
+              <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+                <User size={18} color="#71717b" />
                 <TextInput
-                  className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
+                  className="flex-1 ml-2.5 text-sm text-gray-900 py-0"
                   placeholder={t("Enter your full name")}
                   placeholderTextColor="#9ca3af"
                   value={name}
@@ -203,16 +246,18 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
                   autoCapitalize="words"
                   autoComplete="name"
                   returnKeyType="next"
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
                 />
               </View>
             </FormField>
 
             {/* Email Input */}
             <FormField label={t("Email Address")} className="mb-4">
-              <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-                <Mail size={20} color="#71717b" />
+              <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+                <Mail size={18} color="#71717b" />
                 <TextInput
-                  className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
+                  ref={emailInputRef}
+                  className="flex-1 ml-2.5 text-sm text-gray-900 py-0"
                   placeholder={t("Enter your email")}
                   placeholderTextColor="#9ca3af"
                   value={email}
@@ -221,7 +266,8 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
                   autoCapitalize="none"
                   autoCorrect={false}
                   autoComplete="email"
-                  returnKeyType="done"
+                  returnKeyType="next"
+                  onSubmitEditing={handleNextStep}
                 />
               </View>
             </FormField>
@@ -233,10 +279,11 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Phone Input (Optional) */}
             <FormField label={t("Phone Number")} optional className="mb-4">
-              <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-                <Phone size={20} color="#71717b" />
+              <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5">
+                <Phone size={18} color="#71717b" />
                 <TextInput
-                  className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
+                  ref={phoneInputRef}
+                  className="flex-1 ml-2.5 text-sm text-gray-900 py-0"
                   placeholder={t("Enter your phone number")}
                   placeholderTextColor="#9ca3af"
                   value={phone}
@@ -244,84 +291,64 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
                   keyboardType="phone-pad"
                   autoComplete="tel"
                   returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
                 />
               </View>
             </FormField>
 
             {/* Password Input */}
             <FormField label={t("Password")} className="mb-4">
-              <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-                <Lock size={20} color="#71717b" />
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => passwordInputRef.current?.focus()}
+                className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5"
+              >
+                <Lock size={18} color="#71717b" />
                 <TextInput
-                  className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
-                  placeholder={t("Minimum 8 characters")}
+                  ref={passwordInputRef}
+                  className="flex-1 ml-2.5 text-sm text-gray-900 py-0"
+                  placeholder={t("Example: moloman12")}
                   placeholderTextColor="#9ca3af"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="next"
+                  onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="ml-2"
-                  activeOpacity={0.7}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color="#71717b" />
-                  ) : (
-                    <Eye size={20} color="#71717b" />
-                  )}
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </FormField>
 
-            {/* Password Requirements */}
-            <View className="flex-row items-center mb-4">
-              <View
-                className={`w-5 h-5 rounded-full items-center justify-center ${
-                  password.length >= 8 ? "bg-green-500" : "bg-gray-200"
-                }`}
-              >
-                {password.length >= 8 && <Check size={12} color="#fff" />}
-              </View>
-              <Text
-                className={`ml-2 text-sm ${
-                  password.length >= 8 ? "text-green-600" : "text-gray-500"
-                }`}
-              >
-                <T>At least 8 characters</T>
-              </Text>
+            <View className="mb-4 flex-row flex-wrap rounded-xl bg-gray-50 px-3 py-3">
+              <PasswordRequirement label="8+ characters" valid={hasPasswordLength} />
+              <PasswordRequirement label="Contains a letter" valid={hasPasswordLetter} />
+              <PasswordRequirement label="Contains a number" valid={hasPasswordNumber} />
+              <PasswordRequirement label="Passwords match" valid={passwordsMatch} />
             </View>
 
             {/* Confirm Password Input */}
             <FormField label={t("Confirm Password")} className="mb-4">
-              <View className="flex-row items-center h-[52px] px-4 bg-gray-50 rounded-xl border border-gray-200">
-                <Lock size={20} color="#71717b" />
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => confirmPasswordInputRef.current?.focus()}
+                className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-3.5"
+              >
+                <Lock size={18} color="#71717b" />
                 <TextInput
-                  className="flex-1 ml-3 text-[15px] text-gray-900 py-0"
+                  ref={confirmPasswordInputRef}
+                  className="flex-1 ml-2.5 text-sm text-gray-900 py-0"
                   placeholder={t("Re-enter your password")}
                   placeholderTextColor="#9ca3af"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="done"
+                  onSubmitEditing={() => {
+                    if (canContinuePasswordStep) handleNextStep();
+                  }}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="ml-2"
-                  activeOpacity={0.7}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={20} color="#71717b" />
-                  ) : (
-                    <Eye size={20} color="#71717b" />
-                  )}
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </FormField>
           </Animated.View>
         );
@@ -330,7 +357,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
         return (
           <Animated.View style={{ opacity: fadeAnim }}>
             {/* Review Card */}
-            <View className="bg-gray-50 rounded-2xl p-5 mb-6">
+            <View className="mb-5 rounded-2xl bg-gray-50 p-5">
               <Text className="text-sm font-semibold text-gray-900 mb-3">
                 <T>Account Details</T>
               </Text>
@@ -366,7 +393,7 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
 
             {/* Terms & Privacy Agreement */}
             <TouchableOpacity
-              className="flex-row items-start mb-6"
+              className="mb-5 flex-row items-start"
               onPress={() => setConsentAccepted(!consentAccepted)}
               activeOpacity={0.7}
             >
@@ -398,12 +425,11 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
             </TouchableOpacity>
 
             {/* Data Usage Notice */}
-            <View className="bg-primary/5 rounded-xl p-4 mb-4">
+            <View className="mb-4 rounded-xl bg-primary/5 p-4">
               <Text className="text-xs text-gray-600 leading-5">
                 <T>
-                  🔒 Your health data is encrypted and stored securely. We never
-                  share your personal information with third parties without your
-                  explicit consent.
+                  Your health data is encrypted and stored securely. We never
+                  share your personal information without your explicit consent.
                 </T>
               </Text>
             </View>
@@ -416,71 +442,83 @@ export function RegisterForm({ onStepChange }: RegisterFormProps) {
   };
 
   return (
-    <View className="flex-1">
-      {/* Step Indicator */}
-      <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+    <>
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
+      <View className="pt-1">
+        <StepIndicator
+          currentStep={currentStep}
+          currentLabel={getStepTitle()}
+          totalSteps={TOTAL_STEPS}
+        />
 
-      {/* Title */}
-      <View className="mb-8">
-        <Text className="text-[32px] font-bold text-gray-900 mb-2 tracking-tight">
-          <T>{getStepTitle()}</T>
-        </Text>
-        <Text className="text-base text-gray-500 leading-6">
-          <T>{getStepSubtitle()}</T>
-        </Text>
+        <View className="mb-4">
+          <Text className="text-sm leading-5 text-gray-500">
+            <T>{getStepSubtitle()}</T>
+          </Text>
+        </View>
+
+        {renderStepContent()}
+
+        {/* Action buttons flow right after step content */}
+        <View
+          className={`flex-row gap-3 mt-6 ${
+            currentStep === 1 ? "" : "justify-between"
+          }`}
+        >
+          {currentStep > 1 && (
+            <Button
+              variant="secondary"
+              onPress={handlePreviousStep}
+              className="flex-1"
+              icon={<ArrowLeft size={18} color="#374151" />}
+              iconPosition="left"
+            >
+              <T>Back</T>
+            </Button>
+          )}
+
+          {currentStep < TOTAL_STEPS ? (
+            <Button
+              onPress={handleNextStep}
+              disabled={currentStep === 2 && !canContinuePasswordStep}
+              className="flex-1"
+              icon={<ArrowRight size={18} color="#ffffff" />}
+              iconPosition="right"
+            >
+              <T>Continue</T>
+            </Button>
+          ) : (
+            <Button
+              onPress={handleRegister}
+              loading={isLoading}
+              disabled={isLoading || !consentAccepted}
+              className="flex-1"
+            >
+              <T>Create Account</T>
+            </Button>
+          )}
+        </View>
       </View>
 
-      {/* Step Content */}
-      <View className="flex-1">{renderStepContent()}</View>
+    </ScrollView>
 
-      {/* Navigation Buttons */}
-      <View
-        className={`flex-row gap-3 ${currentStep === 1 ? "" : "justify-between"}`}
-      >
-        {currentStep > 1 && (
-          <Button
-            variant="secondary"
-            onPress={handlePreviousStep}
-            className="flex-1"
-            icon={<ArrowLeft size={20} color="#374151" />}
-            iconPosition="left"
-          >
-            <T>Back</T>
-          </Button>
-        )}
-
-        {currentStep < TOTAL_STEPS ? (
-          <Button
-            onPress={handleNextStep}
-            className="flex-1"
-            icon={<ArrowRight size={20} color="#ffffff" />}
-            iconPosition="right"
-          >
-            <T>Continue</T>
-          </Button>
-        ) : (
-          <Button
-            onPress={handleRegister}
-            loading={isLoading}
-            disabled={isLoading || !consentAccepted}
-            className="flex-1"
-          >
-            <T>Create Account</T>
-          </Button>
-        )}
-      </View>
-
-      {/* Legal Modals */}
-      <LegalModal
-        visible={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
-        type="terms"
-      />
-      <LegalModal
-        visible={showPrivacyModal}
-        onClose={() => setShowPrivacyModal(false)}
-        type="privacy"
-      />
-    </View>
+    {/* Modals rendered outside scroll so they overlay the full screen */}
+    <LegalModal
+      visible={showTermsModal}
+      onClose={() => setShowTermsModal(false)}
+      type="terms"
+    />
+    <LegalModal
+      visible={showPrivacyModal}
+      onClose={() => setShowPrivacyModal(false)}
+      type="privacy"
+    />
+    </>
   );
 }

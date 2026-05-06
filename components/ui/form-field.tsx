@@ -17,10 +17,10 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <View className={className || "mb-4"}>
-      <View className="flex-row items-center mb-2">
-        <Text className="text-sm font-medium text-gray-700">{label}</Text>
+      <View className="mb-1.5 flex-row items-center">
+        <Text className="text-[13px] font-medium text-gray-700">{label}</Text>
         {optional && (
-          <Text className="text-xs text-gray-400 ml-2">(Optional)</Text>
+          <Text className="ml-2 text-xs text-gray-400">(Optional)</Text>
         )}
       </View>
       {children}

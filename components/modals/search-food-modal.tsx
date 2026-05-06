@@ -13,6 +13,7 @@ import {
   searchAndScoreFoods,
 } from "@/lib/meal-recommendation";
 import { AppLoader } from "@/components/ui";
+import { T, useTranslation } from "@/hooks/use-translation";
 import * as Haptics from "expo-haptics";
 import { Search, Utensils, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -54,6 +55,7 @@ export function SearchFoodModal({
   onSelectFood,
   renderFoodCard,
 }: SearchFoodModalProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [results, setResults] = useState<RecommendedFood[]>([]);
@@ -145,7 +147,7 @@ export function SearchFoodModal({
                 onChangeText={setQuery}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
-                placeholder="Search foods..."
+                placeholder={t("Search foods...")}
                 className="flex-1 ml-2 text-base text-gray-800 py-0"
                 placeholderTextColor="#9ca3af"
                 returnKeyType="search"
@@ -171,8 +173,7 @@ export function SearchFoodModal({
         {query.length === 0 && (
           <View className="bg-blue-50 border-b border-blue-100 px-4 md:px-6 py-3">
             <Text className="text-blue-700 text-sm">
-              {"💡 Try searching for \"rice\", \"beans\", \"egusi\", or any Nigerian"}
-              food
+              💡 <T>Try searching for &quot;rice&quot;, &quot;beans&quot;, &quot;egusi&quot;, or any Nigerian food</T>
             </Text>
           </View>
         )}
@@ -201,17 +202,18 @@ export function SearchFoodModal({
                     <Search size={36} color="#d1d5db" />
                   </View>
                   <Text className="text-gray-500 font-medium text-base">
-                    Search for Foods
+                    <T>Search for Foods</T>
                   </Text>
                   <Text className="text-gray-400 mt-2 text-center px-8 leading-5">
-                    Type at least 2 characters to search{"\n"}through our food
-                    database
+                    <T>Type at least 2 characters to search through our food database</T>
                   </Text>
                 </>
               ) : debouncedQuery !== query ? (
                 <View className="items-center">
                   <AppLoader size="lg" color="#1447e6" />
-                  <Text className="text-gray-400 mt-4">Searching...</Text>
+                  <Text className="text-gray-400 mt-4">
+                    <T>Searching...</T>
+                  </Text>
                 </View>
               ) : (
                 <>
@@ -219,10 +221,10 @@ export function SearchFoodModal({
                     <Utensils size={36} color="#d1d5db" />
                   </View>
                   <Text className="text-gray-500 font-medium text-base">
-                    No Foods Found
+                    <T>No Foods Found</T>
                   </Text>
                   <Text className="text-gray-400 mt-2 text-center px-8 leading-5">
-                    No foods match {query}.{"\n"}Try a different search term.
+                    <T>No foods match</T> {query}.{"\n"}<T>Try a different search term.</T>
                   </Text>
                 </>
               )}
@@ -234,8 +236,8 @@ export function SearchFoodModal({
         {results.length > 0 && (
           <View className="bg-white border-t border-gray-100 px-4 md:px-6 py-2.5">
             <Text className="text-gray-500 text-sm text-center">
-              Found {results.length} food{results.length !== 1 ? "s" : ""}{" "}
-              matching {debouncedQuery}
+              <T>Found</T> {results.length} <T>{results.length !== 1 ? "foods" : "food"}</T>{" "}
+              <T>matching</T> {debouncedQuery}
             </Text>
           </View>
         )}

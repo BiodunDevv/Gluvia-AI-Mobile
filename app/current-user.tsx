@@ -1,7 +1,8 @@
 import { useAuthStore } from "@/store/auth-store";
 import { useSyncStore } from "@/store/sync-store";
 import { isProfileComplete } from "@/lib/profile-completion";
-import { T } from "@/hooks/use-translation";
+import { T, useTranslation } from "@/hooks/use-translation";
+import { LegalModal } from "@/components/auth";
 import { AppLoader } from "@/components/ui";
 import { Href, router } from "expo-router";
 import {
@@ -11,6 +12,7 @@ import {
   LogIn,
   LogOut,
   MessageCircle,
+  ShieldCheck,
   Trash2,
   TrendingUp,
   Wifi,
@@ -31,11 +33,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CurrentUserScreen() {
   const { user, checkAuth, isAuthenticated, isLoading, logout } =
     useAuthStore();
+  const { language, languages } = useTranslation();
   const isOnline = useSyncStore((state) => state.isOnline);
   const showOffline = !isOnline;
   const [isCheckingSession, setIsCheckingSession] = useState(
-    !isAuthenticated && !user
+    !isAuthenticated && !user,
   );
+  const [legalModal, setLegalModal] = useState<{
+    visible: boolean;
+    type: "terms" | "privacy";
+  }>({ visible: false, type: "terms" });
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -64,13 +71,13 @@ export default function CurrentUserScreen() {
     }
 
     router.replace(
-      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href
+      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href,
     );
   }, [isAuthenticated, user]);
 
   const handleContinueToDashboard = () => {
     router.replace(
-      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href
+      (isProfileComplete(user) ? "/(tabs)" : "/complete-profile") as Href,
     );
   };
 
@@ -94,6 +101,12 @@ export default function CurrentUserScreen() {
   const handleRequestDeletion = () => {
     Linking.openURL("https://gluvia.vercel.app/delete-account");
   };
+
+  const languageCode =
+    languages
+      .find((item) => item.value === language)
+      ?.label.slice(0, 2)
+      .toUpperCase() || "EN";
 
   if (isLoading || isCheckingSession || (isAuthenticated && user)) {
     return (
@@ -120,7 +133,7 @@ export default function CurrentUserScreen() {
     switch (role) {
       case "user":
         return {
-          label: "Patient",
+          label: "Member",
           color: "bg-blue-500/20",
           text: "text-blue-100",
         };
@@ -143,7 +156,7 @@ export default function CurrentUserScreen() {
           <View className="flex-1 px-6">
             {/* Header */}
             <View className="flex-row items-center justify-between pt-4 pb-8">
-            <View className="flex-row items-center">
+              <View className="flex-row items-center">
                 <Image
                   source={require("@/assets/images/logo.png")}
                   className="w-9 h-9"
@@ -326,107 +339,133 @@ export default function CurrentUserScreen() {
 
   // Not authenticated - show auth options
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View className="flex-1 px-6">
-        {/* Header */}
-        <View className="flex-row items-center justify-between pt-4 pb-8">
+        <View className="flex-row items-center justify-between pb-5 pt-3">
           <View className="flex-row items-center">
-            <Image
-              source={require("@/assets/images/logo.png")}
-              className="w-9 h-9"
-              resizeMode="contain"
-            />
-            <Text className="text-xl font-bold text-gray-900 ml-2.5">
+            <View className="h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+              <Image
+                source={require("@/assets/images/logo.png")}
+                className="h-7 w-7"
+                resizeMode="contain"
+              />
+            </View>
+            <Text className="ml-2.5 text-lg font-bold tracking-tight text-gray-900">
               Gluvia
             </Text>
           </View>
           <TouchableOpacity
-            className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+            className="h-10 flex-row items-center justify-center rounded-full border border-gray-200 bg-white px-3"
             onPress={handleLanguage}
             activeOpacity={0.8}
           >
             <Globe2 size={18} color="#374151" />
+            <Text className="ml-1.5 text-xs font-semibold text-gray-700">
+              {languageCode}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Hero Section */}
-        <View className="flex-1 justify-center">
-          <View className="items-center mb-12">
-            <View className="w-28 h-28 rounded-3xl bg-primary/10 items-center justify-center mb-6">
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "space-between" }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View className="pt-8">
+            <View className="mb-8 h-16 w-16 items-center justify-center rounded-3xl bg-primary/10">
               <Image
                 source={require("@/assets/images/logo.png")}
-                className="w-16 h-16"
+                className="h-10 w-10"
                 resizeMode="contain"
               />
             </View>
-            <Text className="text-[32px] font-bold text-gray-900 tracking-tight mb-2 text-center">
-              <T>Your AI Health</T>
+
+            <Text className="text-[34px] font-bold leading-[40px] tracking-tight text-gray-950">
+              <T>Health guidance that fits your day.</T>
             </Text>
-            <Text className="text-[32px] font-bold text-primary tracking-tight mb-4 text-center">
-              <T>Companion</T>
+            <Text className="mt-4 text-base leading-6 text-gray-500">
+              <T>
+                Track meals, glucose, and personal AI guidance in one calm place.
+              </T>
             </Text>
-            <Text className="text-base text-gray-500 text-center leading-6 px-4">
-              <T>Manage your diabetes with personalized meal guidance, powered by AI</T>
-            </Text>
+
+            <View className="mt-8 rounded-3xl border border-gray-100 bg-gray-50 p-4">
+              <FeatureItem
+                icon={Heart}
+                iconColor="#1447e6"
+                iconBg="#eff6ff"
+                title="Daily health logging"
+                description="Keep food and glucose records easy to review"
+              />
+              <FeatureItem
+                icon={ShieldCheck}
+                iconColor="#059669"
+                iconBg="#ecfdf5"
+                title="Private by design"
+                description="Control language, account access, and deletion"
+              />
+              <FeatureItem
+                icon={MessageCircle}
+                iconColor="#7c3aed"
+                iconBg="#f5f3ff"
+                title="Personal AI support"
+                description="Use your logs for smarter, safer guidance"
+              />
+            </View>
           </View>
 
-          {/* Features */}
-          <View className="mb-8">
-            <FeatureItem
-              icon={Heart}
-              iconColor="#ef4444"
-              iconBg="#fee2e2"
-              title="Track Your Health"
-              description="Monitor meals and glucose levels"
-            />
-            <FeatureItem
-              icon={TrendingUp}
-              iconColor="#10b981"
-              iconBg="#d1fae5"
-              title="Smart Insights"
-              description="AI-powered recommendations"
-            />
-            <FeatureItem
-              icon={LogIn}
-              iconColor="#1447e6"
-              iconBg="#dbeafe"
-              title="Works Offline"
-              description="Access anywhere, sync when connected"
-            />
+          <View className="pb-2">
+            <TouchableOpacity
+              className="mb-3 h-14 flex-row items-center justify-center rounded-2xl bg-primary shadow-sm"
+              onPress={handleSignIn}
+              activeOpacity={0.8}
+            >
+              <LogIn size={19} color="#fff" />
+              <Text className="ml-2 text-base font-semibold text-white">
+                <T>Sign in</T>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="h-14 items-center justify-center rounded-2xl border border-gray-200 bg-white"
+              onPress={handleSignUp}
+              activeOpacity={0.8}
+            >
+              <Text className="text-base font-semibold text-gray-900">
+                <T>Create account</T>
+              </Text>
+            </TouchableOpacity>
+
+            <Text className="mt-5 px-2 text-center text-xs leading-5 text-gray-400">
+              <T>By continuing, you agree to our</T>{" "}
+              <Text
+                className="font-semibold text-primary"
+                onPress={() => setLegalModal({ visible: true, type: "terms" })}
+              >
+                <T>Terms</T>
+              </Text>{" "}
+              <T>and</T>{" "}
+              <Text
+                className="font-semibold text-primary"
+                onPress={() =>
+                  setLegalModal({ visible: true, type: "privacy" })
+                }
+              >
+                <T>Privacy Policy</T>
+              </Text>
+            </Text>
           </View>
-        </View>
-
-        {/* Auth Buttons */}
-        <View className="pb-8">
-          <TouchableOpacity
-            className="h-14 bg-primary rounded-2xl items-center justify-center mb-3 shadow-sm"
-            onPress={handleSignIn}
-            activeOpacity={0.8}
-          >
-            <Text className="text-white text-base font-semibold">
-              <T>Sign In</T>
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="h-14 bg-gray-100 rounded-2xl items-center justify-center"
-            onPress={handleSignUp}
-            activeOpacity={0.8}
-          >
-            <Text className="text-gray-700 text-base font-semibold">
-              <T>Create Account</T>
-            </Text>
-          </TouchableOpacity>
-
-          <Text className="text-center text-xs text-gray-400 mt-6 leading-5">
-            <T>
-              By continuing, you agree to our Terms of Service and Privacy
-              Policy
-            </T>
-          </Text>
-        </View>
+        </ScrollView>
       </View>
+      <LegalModal
+        visible={legalModal.visible}
+        type={legalModal.type}
+        onClose={() =>
+          setLegalModal((current) => ({ ...current, visible: false }))
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -453,9 +492,9 @@ function FeatureItem({
         <Icon size={22} color={iconColor} />
       </View>
       <View className="flex-1 ml-4">
-              <Text className="text-[15px] font-semibold text-gray-900 mb-0.5">
+        <Text className="text-[15px] font-semibold text-gray-900 mb-0.5">
           <T>{title}</T>
-              </Text>
+        </Text>
         <Text className="text-sm text-gray-500">
           <T>{description}</T>
         </Text>

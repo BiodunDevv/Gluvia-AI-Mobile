@@ -1,4 +1,3 @@
-import { FoodDetailModal } from "@/components/modals";
 import { AppLoader } from "@/components/ui";
 import { T, useTranslation } from "@/hooks/use-translation";
 import { Food, useFoodStore } from "@/store/food-store";
@@ -6,9 +5,11 @@ import { useSyncStore } from "@/store/sync-store";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { Href, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -196,8 +197,8 @@ const FoodCard = ({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress(food);
       }}
-      activeOpacity={0.7}
-      className="bg-white mx-4 mb-3 rounded-xl p-3 shadow-sm border border-gray-100"
+      activeOpacity={0.8}
+      className="mx-4 mb-3 rounded-2xl border border-gray-100 bg-white p-3.5"
     >
       <View className="flex-row">
         {/* Food image */}
@@ -207,10 +208,10 @@ const FoodCard = ({
           size="small"
         />
 
-        <View className="flex-1 ml-3">
+        <View className="ml-3 flex-1">
           {/* Food name */}
           <Text
-            className="text-base font-semibold text-gray-900"
+            className="text-base font-bold text-gray-900"
             numberOfLines={1}
           >
             {food.localName}
@@ -222,7 +223,7 @@ const FoodCard = ({
           )}
 
           {/* Badges */}
-          <View className="flex-row flex-wrap gap-1 mt-1.5 mb-2">
+          <View className="mb-2 mt-1.5 flex-row flex-wrap gap-1">
             <GIBadge gi={food.nutrients.gi} />
             <CategoryBadge category={food.category} />
           </View>
@@ -235,14 +236,14 @@ const FoodCard = ({
               </Text>{" "}
               cal
             </Text>
-            <Text className="text-xs text-gray-300 mx-1.5">•</Text>
+            <Text className="mx-1.5 text-xs text-gray-300">•</Text>
             <Text className="text-xs text-gray-500">
               <Text className="font-semibold text-gray-700">
                 {food.nutrients.carbs_g}g
               </Text>{" "}
               carbs
             </Text>
-            <Text className="text-xs text-gray-300 mx-1.5">•</Text>
+            <Text className="mx-1.5 text-xs text-gray-300">•</Text>
             <Text className="text-xs text-gray-500">
               <Text className="font-semibold text-gray-700">
                 {food.nutrients.protein_g}g
@@ -252,7 +253,7 @@ const FoodCard = ({
           </View>
         </View>
 
-        <View className="justify-center ml-2">
+        <View className="ml-2 justify-center">
           <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
         </View>
       </View>
@@ -291,34 +292,12 @@ export default function FoodsScreen() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedGI, setSelectedGI] = useState<number | undefined>(undefined);
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [shuffledFoods, setShuffledFoods] = useState<Food[]>([]);
   const searchInputRef = useRef<TextInput>(null);
-
-  // Shuffle foods when they change
-  useEffect(() => {
-    if (foods.length > 0) {
-      setShuffledFoods(shuffleArray(foods));
-    } else {
-      setShuffledFoods([]);
-    }
-  }, [foods]);
-
-  // Initial load
-  useEffect(() => {
-    loadFoods(1, true);
-  }, []);
-
-  // Reload when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-    loadFoods(1, true);
-  }, [selectedCategory, selectedGI, appliedSearch]);
 
   const loadFoods = useCallback(
     async (page: number = 1, reset: boolean = false) => {
@@ -336,6 +315,21 @@ export default function FoodsScreen() {
     },
     [appliedSearch, selectedCategory, selectedGI, fetchFoods]
   );
+
+  // Shuffle foods when they change
+  useEffect(() => {
+    if (foods.length > 0) {
+      setShuffledFoods(shuffleArray(foods));
+    } else {
+      setShuffledFoods([]);
+    }
+  }, [foods]);
+
+  // Initial load and reload when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    loadFoods(1, true);
+  }, [loadFoods]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -397,8 +391,7 @@ export default function FoodsScreen() {
 
   const handleFoodPress = useCallback((food: Food) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedFood(food);
-    setDetailModalVisible(true);
+    router.push(`/food-details/${food._id}` as Href);
   }, []);
 
   const handleCategorySelect = useCallback((category: string) => {
@@ -432,10 +425,10 @@ export default function FoodsScreen() {
       <View className="px-4 pb-4">
         {/* Active search indicator */}
         {appliedSearch && (
-          <View className="flex-row items-center bg-primary/10 rounded-lg px-3 py-2 mb-3">
+          <View className="mb-3 flex-row items-center rounded-2xl border border-primary/10 bg-primary/10 px-3.5 py-2.5">
             <Ionicons name="search" size={14} color="#1447e6" />
             <Text
-              className="flex-1 ml-2 text-sm text-primary font-medium"
+              className="ml-2 flex-1 text-sm font-semibold text-primary"
               numberOfLines={1}
             >
               Results for {appliedSearch}
@@ -452,17 +445,17 @@ export default function FoodsScreen() {
             Haptics.selectionAsync();
             setShowFilters(!showFilters);
           }}
-          className="flex-row items-center justify-between bg-white rounded-xl px-4 py-3 mb-3 shadow-sm border border-gray-100"
-          activeOpacity={0.7}
+          className="mb-3 flex-row items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3.5"
+          activeOpacity={0.8}
         >
           <View className="flex-row items-center">
             <Ionicons name="options-outline" size={18} color="#1447e6" />
-            <Text className="ml-2 text-gray-700 font-medium">
+            <Text className="ml-2 text-sm font-semibold text-gray-800">
               <T>Filters</T>
             </Text>
             {activeFilterCount > 0 && (
-              <View className="bg-primary ml-2 w-5 h-5 rounded-full items-center justify-center">
-                <Text className="text-[10px] text-white font-bold">
+              <View className="ml-2 h-5 w-5 items-center justify-center rounded-full bg-primary">
+                <Text className="text-[10px] font-bold text-white">
                   {activeFilterCount}
                 </Text>
               </View>
@@ -477,15 +470,15 @@ export default function FoodsScreen() {
 
         {/* Filters panel */}
         {showFilters && (
-          <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100">
+          <View className="mb-3 rounded-2xl border border-gray-100 bg-white p-4">
             {/* Categories */}
-            <View className="flex-row items-center justify-between mb-2">
+            <View className="mb-2 flex-row items-center justify-between">
               <Text className="text-sm font-semibold text-gray-700">
                 <T>Category</T>
               </Text>
               {hasActiveFilters && (
                 <TouchableOpacity onPress={handleClearFilters}>
-                  <Text className="text-xs text-primary font-medium">
+                  <Text className="text-xs font-semibold text-primary">
                     <T>Clear all</T>
                   </Text>
                 </TouchableOpacity>
@@ -501,12 +494,12 @@ export default function FoodsScreen() {
                   <TouchableOpacity
                     key={category}
                     onPress={() => handleCategorySelect(category)}
-                    className={`px-4 py-2 rounded-full ${
+                    className={`rounded-full px-4 py-2.5 ${
                       selectedCategory === category
                         ? "bg-primary"
                         : "bg-gray-100"
                     }`}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
                     <Text
                       className={`text-sm font-medium ${
@@ -523,7 +516,7 @@ export default function FoodsScreen() {
             </ScrollView>
 
             {/* GI Filter */}
-            <Text className="text-sm font-semibold text-gray-700 mb-2">
+            <Text className="mb-2 text-sm font-semibold text-gray-700">
               <T>Glycemic Index</T>
             </Text>
             <View className="flex-row flex-wrap gap-2">
@@ -531,7 +524,7 @@ export default function FoodsScreen() {
                 <TouchableOpacity
                   key={filter.label}
                   onPress={() => handleGISelect(filter.value)}
-                  className={`px-4 py-2 rounded-full ${
+                  className={`rounded-full px-4 py-2.5 ${
                     selectedGI === filter.value ? "bg-primary" : "bg-gray-100"
                   }`}
                   activeOpacity={0.7}
@@ -552,10 +545,10 @@ export default function FoodsScreen() {
         )}
 
         {/* Results summary */}
-        <View className="flex-row items-center justify-between bg-gray-100/50 rounded-lg px-3 py-2">
+        <View className="flex-row items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3">
           <View className="flex-row items-center">
             {showCachedBanner && (
-              <View className="flex-row items-center mr-2 bg-amber-100 px-2 py-0.5 rounded-full">
+              <View className="mr-2 flex-row items-center rounded-full bg-amber-100 px-2 py-0.5">
                 <Ionicons name="cloud-offline" size={12} color="#d97706" />
                 <Text className="text-[10px] text-amber-700 font-medium ml-1">
                   <T>Cached</T>
@@ -586,7 +579,7 @@ export default function FoodsScreen() {
       selectedGI,
       hasActiveFilters,
       activeFilterCount,
-      isOffline,
+      showCachedBanner,
       pagination,
       shuffledFoods.length,
       handleClearSearch,
@@ -602,7 +595,7 @@ export default function FoodsScreen() {
     const hasMorePages = currentPage < pagination.totalPages;
 
     return (
-      <View className="px-4 py-4 mb-20">
+      <View className="mb-20 px-4 py-4">
         {/* Page indicator */}
         <View className="flex-row items-center justify-center mb-3">
           <Text className="text-sm text-gray-500">
@@ -623,7 +616,7 @@ export default function FoodsScreen() {
           <TouchableOpacity
             onPress={handleLoadMore}
             disabled={isLoadingMore}
-            className={`flex-row items-center justify-center py-3.5 rounded-xl ${
+            className={`flex-row items-center justify-center rounded-2xl py-3.5 ${
               isLoadingMore ? "bg-gray-100" : "bg-primary"
             }`}
             activeOpacity={0.7}
@@ -678,14 +671,14 @@ export default function FoodsScreen() {
   };
 
   const renderEmpty = () => (
-    <View className="items-center justify-center py-20 px-6">
-      <View className="w-24 h-24 bg-gray-100 rounded-full items-center justify-center mb-4">
-        <Ionicons name="nutrition-outline" size={48} color="#9ca3af" />
+    <View className="items-center justify-center px-6 py-20">
+      <View className="mb-4 h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
+        <Ionicons name="nutrition-outline" size={36} color="#1447e6" />
       </View>
-      <Text className="text-lg font-semibold text-gray-700 mb-2">
+      <Text className="mb-2 text-lg font-bold text-gray-900">
         {hasActiveFilters ? t("No foods found") : t("No Food Data Available")}
       </Text>
-      <Text className="text-sm text-gray-500 text-center mb-6">
+      <Text className="mb-6 text-center text-sm leading-5 text-gray-500">
         {hasActiveFilters
           ? t(
               "Try adjusting your search or filters to find what you're looking for"
@@ -695,7 +688,7 @@ export default function FoodsScreen() {
       {hasActiveFilters && (
         <TouchableOpacity
           onPress={handleClearFilters}
-          className="bg-primary px-6 py-3 rounded-full"
+          className="rounded-2xl bg-primary px-5 py-3"
           activeOpacity={0.7}
         >
           <Text className="text-white font-semibold">
@@ -711,20 +704,23 @@ export default function FoodsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
       {/* Header */}
-      <View className="px-5 pt-4 pb-3 bg-gray-50">
+      <View className="bg-gray-50 px-5 pb-3 pt-4">
         <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-2xl font-bold text-gray-900">
-              <T>Foods</T>
+          <View className="flex-1 pr-3">
+            <View className="mb-2 h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+              <Ionicons name="restaurant-outline" size={20} color="#1447e6" />
+            </View>
+            <Text className="text-2xl font-bold tracking-tight text-gray-900">
+              <T>Food library</T>
             </Text>
-            <Text className="text-sm text-gray-500 mt-0.5">
-              <T>Nigerian foods & nutrition</T>
+            <Text className="mt-0.5 text-sm text-gray-500">
+              <T>Search foods, compare carbs, and review portions</T>
             </Text>
           </View>
           {showOfflineBanner && (
-            <View className="bg-amber-100 px-3 py-1.5 rounded-full flex-row items-center">
+            <View className="flex-row items-center rounded-full bg-amber-100 px-3 py-1.5">
               <Ionicons name="cloud-offline" size={14} color="#d97706" />
-              <Text className="text-xs text-amber-700 font-medium ml-1.5">
+              <Text className="ml-1.5 text-xs font-medium text-amber-700">
                 <T>Offline Mode</T>
               </Text>
             </View>
@@ -733,14 +729,14 @@ export default function FoodsScreen() {
       </View>
 
       {/* Search bar - Outside FlatList to prevent focus issues */}
-      <View className="px-4 pb-3 bg-gray-50">
+      <View className="bg-gray-50 px-4 pb-3">
         <View className="flex-row items-center">
-          <View className="flex-1 flex-row items-center bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100">
-            <Ionicons name="search" size={20} color="#9ca3af" />
+          <View className="h-12 flex-1 flex-row items-center rounded-2xl border border-gray-100 bg-white px-3.5">
+            <Ionicons name="search" size={18} color="#9ca3af" />
             <TextInput
               ref={searchInputRef}
-              className="flex-1 ml-3 text-gray-900 text-base"
-              placeholder="Search foods..."
+              className="ml-2.5 flex-1 py-0 text-sm text-gray-900"
+              placeholder={t("Search foods...")}
               placeholderTextColor="#9ca3af"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -750,16 +746,16 @@ export default function FoodsScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={handleClearSearch} className="p-1">
-                <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                <Ionicons name="close-circle" size={18} color="#9ca3af" />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity
             onPress={handleSearch}
-            className="ml-2 bg-primary px-4 py-3 rounded-xl shadow-sm"
-            activeOpacity={0.7}
+            className="ml-2 h-12 w-12 items-center justify-center rounded-2xl bg-primary"
+            activeOpacity={0.8}
           >
-            <Ionicons name="search" size={20} color="white" />
+            <Ionicons name="search" size={18} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -781,6 +777,7 @@ export default function FoodsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
+            progressViewOffset={Platform.OS === "android" ? 20 : 0}
             colors={["#1447e6"]}
             tintColor="#1447e6"
           />
@@ -790,29 +787,19 @@ export default function FoodsScreen() {
       {/* Loading overlay */}
       {isLoading && foods.length === 0 && (
         <View className="absolute inset-0 items-center justify-center bg-gray-50">
-          <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
+          <View className="items-center rounded-2xl border border-gray-100 bg-white p-6">
             <AppLoader size="lg" color="#1447e6" />
             <Text className="text-gray-600 mt-3 font-medium">
-              Loading foods...
+              <T>Loading foods...</T>
             </Text>
             {showCachedBanner && (
               <Text className="text-xs text-amber-600 mt-1">
-                Using cached data
+                <T>Using cached data</T>
               </Text>
             )}
           </View>
         </View>
       )}
-
-      {/* Food detail modal */}
-      <FoodDetailModal
-        food={selectedFood}
-        visible={detailModalVisible}
-        onClose={() => {
-          setDetailModalVisible(false);
-          setSelectedFood(null);
-        }}
-      />
     </SafeAreaView>
   );
 }

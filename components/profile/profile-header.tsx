@@ -1,3 +1,4 @@
+import { T } from "@/hooks/use-translation";
 import { User } from "@/store/auth-store";
 import { Camera } from "lucide-react-native";
 import { Image, Text, TouchableOpacity, View } from "react-native";
@@ -27,7 +28,7 @@ export function ProfileHeader({
     switch (role) {
       case "user":
         return {
-          label: "Patient",
+          label: "Member",
           color: "bg-blue-100",
           text: "text-blue-700",
         };
@@ -67,14 +68,14 @@ export function ProfileHeader({
 
       {/* Name */}
       <Text className="text-2xl font-bold text-gray-900 mb-1">
-        {user?.name || "User"}
+        {user?.name || <T>User</T>}
       </Text>
       <Text className="text-base text-gray-500 mb-3">{user?.email}</Text>
 
       {/* Role Badge */}
       <View className={`px-4 py-1.5 rounded-full ${roleBadge.color}`}>
         <Text className={`text-sm font-semibold ${roleBadge.text}`}>
-          {roleBadge.label}
+          <T>{roleBadge.label}</T>
         </Text>
       </View>
     </View>

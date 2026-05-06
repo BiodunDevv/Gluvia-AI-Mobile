@@ -6,6 +6,7 @@
  */
 
 import { AppLoader } from "@/components/ui/app-loader";
+import { T } from "@/hooks/use-translation";
 import { Href, router } from "expo-router";
 import { Apple, Flame, Plus, Utensils } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
@@ -34,14 +35,14 @@ export function TodayStatsCard({
       className="px-6 mb-6"
     >
       <Text className="text-lg font-semibold text-gray-900 mb-3">
-        {"Today's Nutrition"}
+        <T>Today&apos;s Nutrition</T>
       </Text>
       <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
         {isLoading ? (
           <View className="items-center justify-center py-8">
             <AppLoader size="lg" color="#1447e6" />
             <Text className="mt-3 text-sm text-gray-500">
-              Loading today&apos;s nutrition...
+              <T>Loading today&apos;s nutrition...</T>
             </Text>
           </View>
         ) : (
@@ -53,7 +54,9 @@ export function TodayStatsCard({
               <Text className="text-2xl font-bold text-gray-900">
                 {Math.round(totalCalories)}
               </Text>
-              <Text className="text-xs text-gray-500">Calories</Text>
+              <Text className="text-xs text-gray-500">
+                <T>Calories</T>
+              </Text>
             </View>
             <View className="w-px bg-gray-100" />
             <View className="flex-1 items-center py-2">
@@ -63,7 +66,9 @@ export function TodayStatsCard({
               <Text className="text-2xl font-bold text-gray-900">
                 {`${Math.round(totalCarbs)}g`}
               </Text>
-              <Text className="text-xs text-gray-500">Carbs</Text>
+              <Text className="text-xs text-gray-500">
+                <T>Carbs</T>
+              </Text>
             </View>
             <View className="w-px bg-gray-100" />
             <View className="flex-1 items-center py-2">
@@ -73,7 +78,9 @@ export function TodayStatsCard({
               <Text className="text-2xl font-bold text-gray-900">
                 {mealsCount}
               </Text>
-              <Text className="text-xs text-gray-500">Meals</Text>
+              <Text className="text-xs text-gray-500">
+                <T>Meals</T>
+              </Text>
             </View>
           </View>
         )}
@@ -85,7 +92,7 @@ export function TodayStatsCard({
           >
             <Plus size={16} color="#10b981" />
             <Text className="text-emerald-600 font-semibold ml-2">
-              Log Your First Meal
+              <T>Log Your First Meal</T>
             </Text>
           </Pressable>
         )}
