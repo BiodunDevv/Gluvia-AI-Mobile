@@ -1,7 +1,7 @@
 import { T, useTranslation } from "@/hooks/use-translation";
 import { useChatStore } from "@/store/chat-store";
 import { useSyncStore } from "@/store/sync-store";
-import { AppLoader, AppScreenHeader } from "@/components/ui";
+import { AppLoader, AppScreenHeader, OfflineBanner } from "@/components/ui";
 import { Href, router } from "expo-router";
 import {
   ArrowDownCircle,
@@ -9,7 +9,6 @@ import {
   MessageCircle,
   MessageSquarePlus,
   Trash2,
-  WifiOff,
 } from "lucide-react-native";
 import { useEffect } from "react";
 import {
@@ -131,6 +130,13 @@ export default function AIChatHomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top", "bottom"]}>
+      <AppScreenHeader
+        title={t("AI Chat")}
+        subtitle={t("Personalized diabetes guidance, questions, and food support")}
+      />
+
+      {!isOnline && <OfflineBanner />}
+
       <FlatList
         data={isOnline ? filteredConversations : []}
         keyExtractor={(item) => item.id}
@@ -144,29 +150,6 @@ export default function AIChatHomeScreen() {
         }
         ListHeaderComponent={
           <>
-            <AppScreenHeader
-              title={t("AI Chat")}
-              subtitle={t("Personalized diabetes guidance, questions, and food support")}
-            />
-
-            {!isOnline ? (
-              <View className="mx-4 mt-2 rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-5">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white/80">
-                  <WifiOff size={22} color="#b45309" />
-                </View>
-                <Text className="mt-4 text-lg font-bold text-amber-900">
-                  <T>AI chat needs internet access</T>
-                </Text>
-                <Text className="mt-2 text-sm leading-6 text-amber-800">
-                  <T>
-                    Connect to Wi-Fi or mobile data to start or reopen AI
-                    conversations. This feature is available only while you are
-                    online.
-                  </T>
-                </Text>
-              </View>
-            ) : null}
-
             {isOnline ? (
               <View className="mt-4 flex-row gap-3 px-4">
                 <Pressable

@@ -196,29 +196,12 @@ export default function RootLayout() {
       pathname === "/" ||
       pathname === "/onboarding";
     const isMaintenancePath = pathname === "/maintenance";
-    const isOfflinePath = pathname === "/offline";
     const isProfileGatePath =
       pathname === "/complete-profile" || pathname === "/edit-profile";
     const profileComplete = isProfileComplete(user);
 
     if (maintenanceMessage && !isMaintenancePath) {
       router.replace("/maintenance" as Href);
-      return;
-    }
-
-    if (!maintenanceMessage && !isOnline && !isOfflinePath) {
-      router.replace("/offline" as Href);
-      return;
-    }
-
-    if (isOnline && isOfflinePath) {
-      router.replace(
-        (isAuthenticated
-          ? profileComplete
-            ? "/(tabs)"
-            : "/complete-profile"
-          : "/current-user") as Href,
-      );
       return;
     }
 
@@ -261,13 +244,6 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="maintenance"
-          options={{
-            gestureEnabled: false,
-            animation: "fade",
-          }}
-        />
-        <Stack.Screen
-          name="offline"
           options={{
             gestureEnabled: false,
             animation: "fade",

@@ -595,8 +595,7 @@ export default function FoodsScreen() {
     const hasMorePages = currentPage < pagination.totalPages;
 
     return (
-      <View className="mb-20 px-4 py-4">
-        {/* Page indicator */}
+      <View className="px-4 py-4">
         <View className="flex-row items-center justify-center mb-3">
           <Text className="text-sm text-gray-500">
             <T>Showing</T>{" "}
@@ -611,7 +610,6 @@ export default function FoodsScreen() {
           </Text>
         </View>
 
-        {/* Load more button */}
         {hasMorePages && (
           <TouchableOpacity
             onPress={handleLoadMore}
@@ -770,7 +768,6 @@ export default function FoodsScreen() {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={!isLoading ? renderEmpty : null}
         ListFooterComponent={renderFooter}
-        contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={

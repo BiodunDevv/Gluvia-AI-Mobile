@@ -1,5 +1,5 @@
 import { LogGlucoseModal } from "@/components/modals";
-import { AppLoader, RecentMealsCard, TodayStatsCard } from "@/components/ui";
+import { AppLoader, OfflineBanner, RecentMealsCard, TodayStatsCard } from "@/components/ui";
 import { getTodaysMeals, type MealHistoryEntry } from "@/lib/offline-db";
 import { T, useTranslation } from "@/hooks/use-translation";
 import { getMissingProfileFields } from "@/lib/profile-completion";
@@ -696,6 +696,12 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           </Animated.View>
+        )}
+
+        {isNetworkOffline && (
+          <View className="pt-3">
+            <OfflineBanner />
+          </View>
         )}
 
         {/* Header */}

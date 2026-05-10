@@ -1,4 +1,4 @@
-import { AppLoader } from "@/components/ui";
+import { AppLoader, OfflineBanner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { getPendingMealLogs } from "@/lib/offline-db";
 import { T, useTranslation } from "@/hooks/use-translation";
@@ -24,7 +24,6 @@ import {
   TrendingDown,
   TrendingUp,
   Utensils,
-  WifiOff,
 } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -520,14 +519,7 @@ export default function UserLogsScreen() {
   const activeMealData = activeTab === "meals" ? groupedMeals : [];
   const activeGlucoseData = activeTab === "glucose" ? groupedGlucose : [];
 
-  const offlineBanner = !isOnline ? (
-    <View className="mx-4 mb-4 flex-row items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-      <WifiOff size={16} color="#b45309" />
-      <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
-        <T>You are offline. Showing the last cached data. Pull to refresh when back online.</T>
-      </Text>
-    </View>
-  ) : null;
+  const offlineBanner = !isOnline ? <OfflineBanner /> : null;
 
   const errorBanner = fetchError ? (
     <View className="mx-4 mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">

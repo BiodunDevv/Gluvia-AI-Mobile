@@ -369,25 +369,21 @@ export default function CurrentUserScreen() {
 
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "space-between" }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "space-between",
+          }}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <View className="pt-8">
-            <View className="mb-8 h-16 w-16 items-center justify-center rounded-3xl bg-primary/10">
-              <Image
-                source={require("@/assets/images/logo.png")}
-                className="h-10 w-10"
-                resizeMode="contain"
-              />
-            </View>
-
+          <View className="pt-4">
             <Text className="text-[34px] font-bold leading-[40px] tracking-tight text-gray-950">
               <T>Health guidance that fits your day.</T>
             </Text>
             <Text className="mt-4 text-base leading-6 text-gray-500">
               <T>
-                Track meals, glucose, and personal AI guidance in one calm place.
+                Track meals, glucose, and personal AI guidance in one calm
+                place.
               </T>
             </Text>
 

@@ -1,4 +1,4 @@
-import { AppLoader, AppScreenHeader, TodayStatsCard } from "@/components/ui";
+import { AppLoader, AppScreenHeader, OfflineBanner, TodayStatsCard } from "@/components/ui";
 import { T, useTranslation } from "@/hooks/use-translation";
 import {
   getCurrentMealType,
@@ -26,7 +26,6 @@ import {
   History,
   Moon,
   ScrollText,
-  WifiOff,
   Sun,
   Utensils,
 } from "lucide-react-native";
@@ -313,6 +312,8 @@ export default function MealRecommendationHub() {
         }
       />
 
+      {!isOnline && <OfflineBanner />}
+
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 96 }}
@@ -332,14 +333,6 @@ export default function MealRecommendationHub() {
 
         {!isChecking && !isDataReady ? (
           <View className="mx-4 rounded-xl border border-gray-200 bg-white p-4">
-            {!isOnline ? (
-              <View className="mb-4 flex-row items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
-                <WifiOff size={16} color="#b45309" />
-                <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
-                  <T>You are offline. Connect to the internet to download meal data for the first time.</T>
-                </Text>
-              </View>
-            ) : null}
             <View className="h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
               <Database size={20} color="#1447e6" />
             </View>
@@ -370,14 +363,6 @@ export default function MealRecommendationHub() {
 
         {isDataReady ? (
           <>
-            {!isOnline && (
-              <View className="mx-4 mb-3 flex-row items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <WifiOff size={15} color="#b45309" />
-                <Text className="flex-1 text-xs font-medium leading-5 text-amber-800">
-                  <T>Offline — recommendations use cached data. Logging meals will sync when you reconnect.</T>
-                </Text>
-              </View>
-            )}
             <View className="mx-4 rounded-xl border border-gray-200 bg-white p-4">
               <View className="flex-row items-center justify-between">
                 <View>

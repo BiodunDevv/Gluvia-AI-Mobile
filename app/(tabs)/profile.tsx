@@ -1,5 +1,5 @@
 import { ProfileFieldRow, ProfileHeader } from "@/components/profile";
-import { AppLoader, Button } from "@/components/ui";
+import { AppLoader } from "@/components/ui";
 import { T, useTranslation } from "@/hooks/use-translation";
 import { formatHeight } from "@/lib/height";
 import {
@@ -152,13 +152,8 @@ function ActionRow({
 }
 
 export default function ProfileScreen() {
-  const {
-    user,
-    getProfile,
-    logout,
-    deleteAccount,
-    uploadPhoto,
-  } = useAuthStore();
+  const { user, getProfile, logout, deleteAccount, uploadPhoto } =
+    useAuthStore();
   const { settings: appSettings, fetchSettings } = useAppSettingsStore();
   const { language, languages, t } = useTranslation();
   const {
@@ -182,7 +177,7 @@ export default function ProfileScreen() {
     useCallback(() => {
       getProfile().catch(() => {});
       fetchSettings().catch(() => {});
-    }, [fetchSettings, getProfile])
+    }, [fetchSettings, getProfile]),
   );
 
   const profileReady = isProfileComplete(user);
@@ -214,7 +209,10 @@ export default function ProfileScreen() {
         onPress: async () => {
           const permission = await ImagePicker.requestCameraPermissionsAsync();
           if (permission.status !== "granted") {
-            Alert.alert(t("Permission required"), t("Camera permission is required."));
+            Alert.alert(
+              t("Permission required"),
+              t("Camera permission is required."),
+            );
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
@@ -237,7 +235,7 @@ export default function ProfileScreen() {
           if (permission.status !== "granted") {
             Alert.alert(
               t("Permission required"),
-              t("Photo library permission is required.")
+              t("Photo library permission is required."),
             );
             return;
           }
@@ -274,7 +272,10 @@ export default function ProfileScreen() {
   const handleRequestDeletion = async () => {
     const url = "https://gluvia.vercel.app/delete-account";
     if (!isOnline) {
-      Alert.alert(t("Internet required"), t("Connect to open the deletion request."));
+      Alert.alert(
+        t("Internet required"),
+        t("Connect to open the deletion request."),
+      );
       return;
     }
     try {
@@ -306,24 +307,33 @@ export default function ProfileScreen() {
               await deleteAccount();
               router.replace("/(auth)/login" as Href);
             } catch (error: any) {
-              Alert.alert(t("Error"), error.message || t("Failed to delete account."));
+              Alert.alert(
+                t("Error"),
+                error.message || t("Failed to delete account."),
+              );
             } finally {
               setIsDeleting(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const handleOpenSupportForm = async () => {
     const link = appSettings?.googleFormLink?.trim();
     if (!link) {
-      Alert.alert(t("Form unavailable"), t("Support form is not configured yet."));
+      Alert.alert(
+        t("Form unavailable"),
+        t("Support form is not configured yet."),
+      );
       return;
     }
     if (!isOnline) {
-      Alert.alert(t("Internet required"), t("Connect to open the support form."));
+      Alert.alert(
+        t("Internet required"),
+        t("Connect to open the support form."),
+      );
       return;
     }
     try {
@@ -338,7 +348,10 @@ export default function ProfileScreen() {
   const handleCallSupport = async () => {
     const phone = appSettings?.supportPhone?.trim();
     if (!phone) {
-      Alert.alert(t("Phone unavailable"), t("Support phone is not configured yet."));
+      Alert.alert(
+        t("Phone unavailable"),
+        t("Support phone is not configured yet."),
+      );
       return;
     }
     await Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`);
@@ -356,7 +369,7 @@ export default function ProfileScreen() {
         result.hasChanges ? t("Updates applied") : t("Up to date"),
         result.hasChanges
           ? `${result.foodsUpdated} ${t("foods")} ${t("and")} ${result.rulesUpdated} ${t("rules updated")}.`
-          : t("Your local data is already current.")
+          : t("Your local data is already current."),
       );
     } finally {
       setIsCheckingUpdates(false);
@@ -373,7 +386,7 @@ export default function ProfileScreen() {
       const result = await getFullSync();
       Alert.alert(
         t("Sync complete"),
-        `${t("Synced")} ${result.foods.length} ${t("foods")} ${t("and")} ${result.rules.length} ${t("rules")}.`
+        `${t("Synced")} ${result.foods.length} ${t("foods")} ${t("and")} ${result.rules.length} ${t("rules")}.`,
       );
     } finally {
       setIsForceSyncing(false);
@@ -398,16 +411,15 @@ export default function ProfileScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -418,260 +430,159 @@ export default function ProfileScreen() {
           />
         }
       >
-        <ProfileHeader
-          user={user}
-          showEditButton
-          onPhotoPress={handlePhotoUpload}
-        />
+        {/* ── Hero card ─────────────────────────────── */}
+        <View className="bg-white border-b border-gray-100 px-5 pt-5 pb-6">
+          <ProfileHeader user={user} showEditButton onPhotoPress={handlePhotoUpload} />
 
-        <View className="mb-4 flex-row gap-3">
-          <Button
-            onPress={() => router.push("/edit-profile" as Href)}
-            className="flex-1"
-          >
-            {profileReady ? t("Edit profile") : t("Complete profile")}
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 bg-white"
-            onPress={() => router.push("/language" as Href)}
-          >
-            <T>Language</T>
-          </Button>
+          {/* Profile status chip */}
+          <Animated.View entering={FadeIn.delay(50)}>
+            <View className={`mt-3 self-start flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${profileReady ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+              <ShieldCheck size={12} color={profileReady ? "#059669" : "#b45309"} />
+              <Text className={`text-xs font-semibold ${profileReady ? "text-emerald-700" : "text-amber-700"}`}>
+                <T>{profileReady ? "Profile complete" : `${missingFields.length} field${missingFields.length > 1 ? "s" : ""} missing`}</T>
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Action buttons */}
+          <View className="mt-4 flex-row gap-3">
+            <Pressable
+              onPress={() => router.push("/edit-profile" as Href)}
+              className="flex-1 items-center justify-center rounded-xl bg-primary py-3"
+            >
+              <Text className="text-sm font-semibold text-white">
+                <T>{profileReady ? "Edit profile" : "Complete profile"}</T>
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/language" as Href)}
+              className="flex-row items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+            >
+              <Languages size={15} color="#374151" />
+              <Text className="text-sm font-semibold text-gray-700"><T>Language</T></Text>
+            </Pressable>
+          </View>
         </View>
 
-        <Animated.View entering={FadeIn.delay(50)}>
-          <View
-            className={`mb-5 rounded-3xl border p-5 ${
-              profileReady
-                ? "border-emerald-100 bg-emerald-50"
-                : "border-amber-200 bg-amber-50"
-            }`}
-          >
-            <View className="flex-row items-start">
-              <View className="mr-3 h-11 w-11 items-center justify-center rounded-2xl bg-white/80">
-                <ShieldCheck
-                  size={22}
-                  color={profileReady ? "#059669" : "#b45309"}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold text-gray-900">
-                  <T>
-                    {profileReady
-                      ? "Profile ready"
-                      : "Finish your profile setup"}
-                  </T>
-                </Text>
-                <Text className="mt-1 text-sm leading-6 text-gray-700">
-                  {profileReady
-                    ? t("Your profile details are ready for safer recommendations.")
-                    : `${t("Missing")}: ${missingFields
-                        .map((field) => t(FIELD_LABELS[field] || field))
-                        .join(", ")}.`}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
+        <View className="px-4 pt-5">
 
-        <Section title="Profile summary">
-          <ProfileFieldRow
-            icon={Mail}
-            label="Email"
-            value={user?.email || "Not set"}
-          />
-          <ProfileFieldRow
-            icon={Phone}
-            label="Phone"
-            value={user?.phone || "Not set"}
-          />
-          <ProfileFieldRow
-            icon={HeartPulse}
-            label="Diabetes type"
-            value={DIABETES_LABELS[user?.profile?.diabetesType || ""] || "Not set"}
-          />
-          <ProfileFieldRow
-            icon={Activity}
-            label="Activity level"
-            value={ACTIVITY_LABELS[user?.profile?.activityLevel || ""] || "Not set"}
-          />
-          <ProfileFieldRow
-            icon={Ruler}
-            label="Height"
-            value={formatHeight(user?.profile?.heightCm)}
-          />
-          <ProfileFieldRow
-            icon={Scale}
-            label="Weight"
-            value={
-              user?.profile?.weightKg ? `${user.profile.weightKg} kg` : "Not set"
-            }
-          />
-          <ProfileFieldRow
-            icon={BriefcaseBusiness}
-            label="Food budget preference"
-            value={INCOME_LABELS[user?.profile?.incomeBracket || ""] || "Not set"}
-          />
-          <ProfileFieldRow
-            icon={Globe}
-            label="Language"
-            value={
-              languages.find(
-                (item) => item.value === (user?.profile?.language || language)
-              )?.label || "Not set"
-            }
-          />
-        </Section>
-
-        {user?.profile?.allergies?.length ? (
-          <Section title="Allergies">
-            <View className="flex-row flex-wrap gap-2 rounded-2xl border border-red-100 bg-red-50 p-4">
-              {user.profile.allergies.map((allergy, index) => (
-                <View
-                  key={`${allergy}-${index}`}
-                  className="rounded-full border border-red-100 bg-white px-3 py-2"
-                >
-                  <Text className="text-sm font-medium text-red-700">
-                    {allergy}
-                  </Text>
-                </View>
-              ))}
+          {/* ── Details ──────────────────────────────── */}
+          <Section title="Details">
+            <View className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+              <ProfileFieldRow icon={Mail} label="Email" value={user?.email || "Not set"} />
+              <ProfileFieldRow icon={Phone} label="Phone" value={user?.phone || "Not set"} />
+              <ProfileFieldRow icon={HeartPulse} label="Diabetes type" value={DIABETES_LABELS[user?.profile?.diabetesType || ""] || "Not set"} />
+              <ProfileFieldRow icon={Activity} label="Activity level" value={ACTIVITY_LABELS[user?.profile?.activityLevel || ""] || "Not set"} />
+              <ProfileFieldRow icon={Ruler} label="Height" value={formatHeight(user?.profile?.heightCm)} />
+              <ProfileFieldRow icon={Scale} label="Weight" value={user?.profile?.weightKg ? `${user.profile.weightKg} kg` : "Not set"} />
+              <ProfileFieldRow icon={BriefcaseBusiness} label="Food budget" value={INCOME_LABELS[user?.profile?.incomeBracket || ""] || "Not set"} />
+              <ProfileFieldRow icon={Globe} label="Language" value={languages.find((l) => l.value === (user?.profile?.language || language))?.label || "Not set"} />
             </View>
           </Section>
-        ) : null}
 
-        <Section title="Support">
-          <ActionRow
-            icon={Phone}
-            title="Call support"
-            description="Use the support phone configured by the admin."
-            onPress={handleCallSupport}
-          />
-          <ActionRow
-            icon={ExternalLink}
-            title="Open support form"
-            description="Send a review, question, or suggestion."
-            onPress={handleOpenSupportForm}
-          />
-          <ActionRow
-            icon={Languages}
-            title="Language"
-            description="Change the app language used across Gluvia."
-            onPress={() => router.push("/language" as Href)}
-          />
-        </Section>
-
-        <Section title="Data and sync">
-          <View
-            className={`flex-row items-center rounded-2xl border px-4 py-3 ${
-              isOnline
-                ? "border-emerald-100 bg-emerald-50"
-                : "border-amber-200 bg-amber-50"
-            }`}
-          >
-            {isOnline ? (
-              <Wifi size={18} color="#059669" />
-            ) : (
-              <WifiOff size={18} color="#b45309" />
-            )}
-            <Text
-              className={`ml-2 text-sm font-semibold ${
-                isOnline ? "text-emerald-700" : "text-amber-800"
-              }`}
-            >
-              <T>{isOnline ? "Online" : "Offline"}</T>
-            </Text>
-            <Text className="ml-auto text-xs text-gray-500">
-              <T>Last sync</T>: {formatSyncDate(lastSyncAt)}
-            </Text>
-          </View>
-
-          <View className="rounded-2xl border border-gray-100 bg-white p-4">
-            <View className="flex-row">
-              <View className="flex-1">
-                <Text className="text-xs text-gray-400">
-                  <T>Foods</T>
-                </Text>
-                <Text className="mt-1 text-lg font-bold text-gray-900">
-                  {foods.length}
-                </Text>
+          {/* ── Allergies ────────────────────────────── */}
+          {user?.profile?.allergies?.length ? (
+            <Section title="Allergies">
+              <View className="flex-row flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-4">
+                {user.profile.allergies.map((allergy, index) => (
+                  <View key={`${allergy}-${index}`} className="rounded-full bg-red-50 border border-red-100 px-3 py-1.5">
+                    <Text className="text-xs font-medium text-red-700">{allergy}</Text>
+                  </View>
+                ))}
               </View>
-              <View className="flex-1">
-                <Text className="text-xs text-gray-400">
-                  <T>Rules</T>
-                </Text>
-                <Text className="mt-1 text-lg font-bold text-gray-900">
-                  {rules.length}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-xs text-gray-400">
-                  <T>Version</T>
-                </Text>
-                <Text className="mt-1 text-lg font-bold text-gray-900">
-                  {clientVersion || 0}
-                </Text>
+            </Section>
+          ) : null}
+
+          {/* ── Support ──────────────────────────────── */}
+          <Section title="Support">
+            <View className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+              <ActionRow icon={Phone} title="Call support" description="Speak directly with the support team." onPress={handleCallSupport} />
+              <ActionRow icon={ExternalLink} title="Questionnaire" description="Help us serve you better with a short form." onPress={handleOpenSupportForm} />
+            </View>
+          </Section>
+
+          {/* ── Data & sync ──────────────────────────── */}
+          <Section title="Data and sync">
+            <View className={`flex-row items-center rounded-2xl border px-4 py-3 ${isOnline ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+              {isOnline ? <Wifi size={15} color="#059669" /> : <WifiOff size={15} color="#b45309" />}
+              <Text className={`ml-2 text-sm font-semibold ${isOnline ? "text-emerald-700" : "text-amber-800"}`}>
+                <T>{isOnline ? "Online" : "Offline"}</T>
+              </Text>
+              <Text className="ml-auto text-xs text-gray-400">
+                <T>Synced</T>: {formatSyncDate(lastSyncAt)}
+              </Text>
+            </View>
+
+            <View className="rounded-2xl border border-gray-100 bg-white px-4 py-4">
+              <View className="flex-row">
+                <View className="flex-1 items-center">
+                  <Text className="text-2xl font-bold text-gray-900">{foods.length}</Text>
+                  <Text className="mt-0.5 text-xs text-gray-400"><T>Foods</T></Text>
+                </View>
+                <View className="w-px bg-gray-100" />
+                <View className="flex-1 items-center">
+                  <Text className="text-2xl font-bold text-gray-900">{rules.length}</Text>
+                  <Text className="mt-0.5 text-xs text-gray-400"><T>Rules</T></Text>
+                </View>
+                <View className="w-px bg-gray-100" />
+                <View className="flex-1 items-center">
+                  <Text className="text-2xl font-bold text-gray-900">{clientVersion || 0}</Text>
+                  <Text className="mt-0.5 text-xs text-gray-400"><T>Version</T></Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <ActionRow
-            icon={ArrowDownCircle}
-            title="Check updates"
-            description="Find new foods and guidance rules."
-            onPress={handleCheckUpdates}
-            disabled={!isOnline || isSyncing || clientVersion === 0}
-            loading={isCheckingUpdates}
-          />
-          <ActionRow
-            icon={Download}
-            title="Full sync"
-            description="Re-download foods and rules from the server."
-            onPress={handleForceSync}
-            disabled={!isOnline || isSyncing}
-            loading={isForceSyncing}
-          />
-          <ActionRow
-            icon={CloudOff}
-            title="Clear cached data"
-            description="Remove local cached data and start fresh."
-            onPress={handleClearCache}
-            disabled={isSyncing}
-            loading={isClearingData}
-          />
-        </Section>
+            <View className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+              <ActionRow icon={ArrowDownCircle} title="Check updates" description="Find new foods and guidance rules." onPress={handleCheckUpdates} disabled={!isOnline || isSyncing || clientVersion === 0} loading={isCheckingUpdates} />
+              <ActionRow icon={Download} title="Full sync" description="Re-download all foods and rules from the server." onPress={handleForceSync} disabled={!isOnline || isSyncing} loading={isForceSyncing} />
+              <ActionRow icon={CloudOff} title="Clear cached data" description="Remove local cached data and start fresh." onPress={handleClearCache} disabled={isSyncing} loading={isClearingData} />
+            </View>
+          </Section>
 
-        <Section title="Account">
-          <ActionRow
-            icon={ExternalLink}
-            title="Request account deletion"
-            description="Open the verified web request page."
-            onPress={handleRequestDeletion}
-            tone="danger"
-            disabled={!isOnline}
-          />
-          <ActionRow
-            icon={AlertTriangle}
-            title="Delete account now"
-            description="Permanently delete this account from the app."
-            onPress={handleDeleteAccount}
-            tone="danger"
-            disabled={!isOnline}
-            loading={isDeleting}
-          />
-          <ActionRow
-            icon={LogOut}
-            title="Sign out"
-            description="Leave this device signed out of Gluvia."
-            onPress={handleLogout}
-            tone="danger"
-          />
-        </Section>
+          {/* ── Account ──────────────────────────────── */}
+          <Section title="Account">
+            {/* Sign out — neutral, full-width */}
+            <Pressable
+              onPress={handleLogout}
+              className="flex-row items-center rounded-2xl border border-gray-200 bg-white px-4 py-4"
+            >
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
+                <LogOut size={18} color="#374151" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-gray-900"><T>Sign out</T></Text>
+                <Text className="mt-0.5 text-xs text-gray-500"><T>Leave this device signed out of Gluvia.</T></Text>
+              </View>
+            </Pressable>
 
-        <View className="items-center pb-2">
-          <RefreshCw size={15} color="#9ca3af" />
-          <Text className="mt-2 text-xs text-gray-400">Gluvia v1.0.0</Text>
+            {/* Danger zone — 2 cards side by side */}
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={handleRequestDeletion}
+                disabled={!isOnline}
+                className={`flex-1 rounded-2xl border border-red-100 bg-white p-4 ${!isOnline ? "opacity-50" : ""}`}
+              >
+                <View className="mb-3 h-10 w-10 items-center justify-center rounded-xl bg-red-50">
+                  <ExternalLink size={17} color="#dc2626" />
+                </View>
+                <Text className="text-sm font-semibold text-red-600"><T>Request deletion</T></Text>
+                <Text className="mt-1 text-xs leading-4 text-gray-400"><T>Submit via web form</T></Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleDeleteAccount}
+                disabled={!isOnline || isDeleting}
+                className={`flex-1 rounded-2xl border border-red-200 bg-red-50 p-4 ${!isOnline || isDeleting ? "opacity-50" : ""}`}
+              >
+                <View className="mb-3 h-10 w-10 items-center justify-center rounded-xl bg-red-100">
+                  {isDeleting ? <AppLoader size="sm" color="#dc2626" /> : <AlertTriangle size={17} color="#dc2626" />}
+                </View>
+                <Text className="text-sm font-semibold text-red-600"><T>Delete account</T></Text>
+                <Text className="mt-1 text-xs leading-4 text-gray-400"><T>Permanent, cannot undo</T></Text>
+              </Pressable>
+            </View>
+          </Section>
+
         </View>
       </ScrollView>
     </SafeAreaView>
