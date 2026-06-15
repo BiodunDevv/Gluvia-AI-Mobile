@@ -81,6 +81,59 @@ const GIBadge = ({
   );
 };
 
+const GLBadge = ({
+  carbs_g,
+  gi,
+  size = "small",
+}: {
+  carbs_g: number;
+  gi: number | null;
+  size?: "small" | "large";
+}) => {
+  const isLarge = size === "large";
+
+  if (gi === null) {
+    return (
+      <View
+        className={`bg-gray-100 ${isLarge ? "px-3 py-1" : "px-2 py-0.5"} rounded-full`}
+      >
+        <Text
+          className={`${isLarge ? "text-xs" : "text-[10px]"} text-gray-500 font-medium`}
+        >
+          GL: N/A
+        </Text>
+      </View>
+    );
+  }
+
+  const gl = Math.round((carbs_g * gi) / 100);
+  let bgColor = "bg-green-100";
+  let textColor = "text-green-700";
+  let label = "Low";
+
+  if (gl > 20) {
+    bgColor = "bg-red-100";
+    textColor = "text-red-700";
+    label = "High";
+  } else if (gl > 10) {
+    bgColor = "bg-yellow-100";
+    textColor = "text-yellow-700";
+    label = "Medium";
+  }
+
+  return (
+    <View
+      className={`${bgColor} ${isLarge ? "px-3 py-1" : "px-2 py-0.5"} rounded-full`}
+    >
+      <Text
+        className={`${isLarge ? "text-xs" : "text-[10px]"} ${textColor} font-medium`}
+      >
+        GL: {gl} ({label})
+      </Text>
+    </View>
+  );
+};
+
 // Category badge component
 const CategoryBadge = ({
   category,
@@ -225,6 +278,7 @@ const FoodCard = ({
           {/* Badges */}
           <View className="mb-2 mt-1.5 flex-row flex-wrap gap-1">
             <GIBadge gi={food.nutrients.gi} />
+            <GLBadge carbs_g={food.nutrients.carbs_g} gi={food.nutrients.gi} />
             <CategoryBadge category={food.category} />
           </View>
 

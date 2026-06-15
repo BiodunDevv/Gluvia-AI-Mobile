@@ -288,3 +288,21 @@ export const useFoodStore = create<FoodState>((set, get) => ({
     }
   },
 }));
+
+// Subscribe to sync-store changes so food-store re-fetches automatically
+// when delta sync updates arrive (e.g. after a food is edited on the backend).
+let _prevFoodsRef: unknown = null;
+useSyncStore.subscribe((state) => {
+  if (state.foods !== _prevFoodsRef) {
+    _prevFoodsRef = state.foods;
+    const { fetchFoods, filters, currentFood } = useFoodStore.getState();
+    fetchFoods(filters);
+    // Refresh currentFood in-place if the detail page is open
+    if (currentFood) {
+      const updated = state.foods.find((f) => f._id === currentFood._id);
+      if (updated) {
+        useFoodStore.setState({ currentFood: updated });
+      }
+    }
+  }
+});

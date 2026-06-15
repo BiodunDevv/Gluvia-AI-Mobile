@@ -116,6 +116,11 @@ function NutritionCell({
   );
 }
 
+function computeGL(carbs_g: number, gi: number | null): number | null {
+  if (gi === null) return null;
+  return Math.round((carbs_g * gi) / 100);
+}
+
 export default function FoodDetailsPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
@@ -145,12 +150,19 @@ export default function FoodDetailsPage() {
 
   const activeFood = food || (currentFood?._id === id ? currentFood : null);
   const gi = activeFood?.nutrients.gi ?? null;
+  const gl = activeFood ? computeGL(activeFood.nutrients.carbs_g, gi) : null;
   const giLabel = useMemo(() => {
     if (gi === null) return t("Glycemic index not available");
     if (gi < 55) return t("Low GI - Good for blood sugar control");
     if (gi < 70) return t("Medium GI - Eat in moderation");
     return t("High GI - Limit portions and pair with protein");
   }, [gi, t]);
+  const glLabel = useMemo(() => {
+    if (gl === null) return t("Glycemic load not available");
+    if (gl <= 10) return t("Low GL - Minimal blood sugar impact");
+    if (gl <= 20) return t("Medium GL - Moderate blood sugar impact");
+    return t("High GL - Significant blood sugar impact, watch portions");
+  }, [gl, t]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top", "bottom"]}>
@@ -254,10 +266,18 @@ export default function FoodDetailsPage() {
                 label="Glycemic Index"
                 value={activeFood.nutrients.gi ?? t("N/A")}
               />
+              <NutritionCell
+                label="Glycemic Load"
+                value={
+                  gl !== null
+                    ? `${gl} (${gl <= 10 ? t("Low") : gl <= 20 ? t("Medium") : t("High")})`
+                    : t("N/A")
+                }
+              />
             </View>
           </View>
 
-          <View className="mb-5 rounded-2xl border border-gray-100 bg-white p-4">
+          <View className="mb-3 rounded-2xl border border-gray-100 bg-white p-4">
             <View className="flex-row items-start">
               <Ionicons
                 name={
@@ -281,6 +301,34 @@ export default function FoodDetailsPage() {
               />
               <Text className="ml-2.5 flex-1 text-sm font-medium leading-5 text-gray-700">
                 {giLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mb-5 rounded-2xl border border-gray-100 bg-white p-4">
+            <View className="flex-row items-start">
+              <Ionicons
+                name={
+                  gl === null
+                    ? "help-circle"
+                    : gl <= 10
+                      ? "checkmark-circle"
+                      : "warning"
+                }
+                size={22}
+                color={
+                  gl === null
+                    ? "#6b7280"
+                    : gl <= 10
+                      ? "#16a34a"
+                      : gl <= 20
+                        ? "#ca8a04"
+                        : "#dc2626"
+                }
+                style={{ marginTop: 1 }}
+              />
+              <Text className="ml-2.5 flex-1 text-sm font-medium leading-5 text-gray-700">
+                {glLabel}
               </Text>
             </View>
           </View>
