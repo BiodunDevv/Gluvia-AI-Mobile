@@ -27,7 +27,7 @@
         "POST_NOTIFICATIONS"
       ],
       "package": "com.biodun42.gluviaai",
-      "versionCode": 30
+      "versionCode": 31
     },
     "web": {
       "output": "static",
