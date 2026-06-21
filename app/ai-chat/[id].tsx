@@ -195,7 +195,11 @@ function FoodCard({
 
   return (
     <Pressable
-      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onPress(); }}
+      onPress={() => {
+        if (!food) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        onPress();
+      }}
       style={{
         width: 130,
         height: 170,
@@ -205,6 +209,7 @@ function FoodCard({
         borderColor: "#e5e7eb",
         overflow: "hidden",
         marginRight: 10,
+        opacity: food ? 1 : 0.85,
       }}
     >
       {/* Image — fixed height */}
@@ -224,14 +229,16 @@ function FoodCard({
             <Text style={{ fontSize: 26 }}>🍽️</Text>
           </View>
         )}
-        {/* GI badge */}
-        <View style={{
-          position: "absolute", top: 5, right: 5,
-          borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
-          backgroundColor: giColor + "22", borderWidth: 1, borderColor: giColor + "55",
-        }}>
-          <Text style={{ fontSize: 8, fontWeight: "700", color: giColor }}>{giLabel}</Text>
-        </View>
+        {/* GI badge — only when food record exists */}
+        {food && (
+          <View style={{
+            position: "absolute", top: 5, right: 5,
+            borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
+            backgroundColor: giColor + "22", borderWidth: 1, borderColor: giColor + "55",
+          }}>
+            <Text style={{ fontSize: 8, fontWeight: "700", color: giColor }}>{giLabel}</Text>
+          </View>
+        )}
       </View>
 
       {/* Info — fixed height remainder */}
@@ -245,12 +252,18 @@ function FoodCard({
               {[calories != null && `${Math.round(calories)} ${t("kcal")}`, carbs != null && `${Math.round(carbs)}g ${t("carbs")}`].filter(Boolean).join(" · ")}
             </Text>
           )}
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, gap: 2 }}>
-            <Text style={{ fontSize: 10, color: "#1447e6", fontWeight: "600" }}>
-              <T>Details</T>
+          {food ? (
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, gap: 2 }}>
+              <Text style={{ fontSize: 10, color: "#1447e6", fontWeight: "600" }}>
+                <T>Details</T>
+              </Text>
+              <ChevronRight size={9} color="#1447e6" />
+            </View>
+          ) : (
+            <Text style={{ fontSize: 9, color: "#9ca3af", marginTop: 4 }}>
+              <T>Info unavailable</T>
             </Text>
-            <ChevronRight size={9} color="#1447e6" />
-          </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -292,7 +305,7 @@ function FoodCardsStrip({
           return { name, food: generated };
         })
       );
-      setItems(resolved.filter((item) => item.food !== null));
+      setItems(resolved);
     })();
   }, [content, searchFoods]);
 
