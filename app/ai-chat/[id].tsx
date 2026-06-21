@@ -139,7 +139,8 @@ async function autoCreateFood(name: string): Promise<Food | null> {
     const res = await api.post("/foods/ai-generate", { name });
     const food = res.data?.data;
     if (!food) return null;
-    return {
+
+    const mapped: Food = {
       _id: food._id || food.id,
       localName: food.localName,
       canonicalName: food.canonicalName,
@@ -154,6 +155,38 @@ async function autoCreateFood(name: string): Promise<Food | null> {
       createdAt: food.createdAt || new Date().toISOString(),
       updatedAt: food.updatedAt || new Date().toISOString(),
     } as Food;
+
+    // Inject into sync-store so future searchFoods calls find it without a network round-trip
+    const syncState = useSyncStore.getState();
+    if (!syncState.foods.find((f) => f._id === mapped._id)) {
+      useSyncStore.setState({ foods: [...syncState.foods, mapped] });
+    }
+
+    // Persist to SQLite offline cache so it survives app restarts
+    try {
+      const { cacheFoods } = await import("@/lib/offline-db");
+      await cacheFoods([{
+        id: mapped._id,
+        localName: mapped.localName,
+        canonicalName: mapped.canonicalName,
+        category: mapped.category,
+        nutrients: mapped.nutrients,
+        portionSizes: mapped.portionSizes,
+        affordability: mapped.affordability,
+        tags: mapped.tags,
+        imageUrl: mapped.imageUrl,
+        regionVariants: (mapped as any).regionVariants,
+        source: (mapped as any).source,
+        version: mapped.version ?? 1,
+        deleted: mapped.deleted ?? false,
+        createdAt: mapped.createdAt,
+        updatedAt: mapped.updatedAt,
+      }]);
+    } catch {
+      // Cache failure is non-fatal — card still shows from in-memory state
+    }
+
+    return mapped;
   } catch {
     return null;
   }
