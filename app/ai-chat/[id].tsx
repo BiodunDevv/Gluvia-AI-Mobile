@@ -35,7 +35,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardVisible } from "@/hooks/use-keyboard-visible";
 
 // ─── Google CSE image fetch ───────────────────────────────────────────────────
 
@@ -298,14 +299,14 @@ function FoodCardsStrip({
   if (!items.length) return null;
 
   return (
-    <View style={{ marginTop: 10 }}>
+    <View style={{ marginTop: 10, width: "100%" }}>
       <Text style={{ fontSize: 11, fontWeight: "600", color: "#6b7280", marginBottom: 8, marginLeft: 2 }}>
         SUGGESTED FOODS
       </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ height: 170 }}
+        style={{ height: 170, width: "100%" }}
         contentContainerStyle={{ paddingRight: 4 }}
       >
         {items.map(({ name, food }, i) => (
@@ -574,7 +575,7 @@ function MessageBubble({
 
       {/* Food recommendation cards */}
       {showFoodCards && (
-        <View style={{ maxWidth: "100%", marginTop: 2 }}>
+        <View style={{ width: "100%", marginTop: 2 }}>
           <FoodCardsStrip content={message.content} onFoodPress={onFoodPress} />
         </View>
       )}
@@ -773,6 +774,8 @@ function EmptyState({ onSuggestionPress }: { onSuggestionPress: (text: string) =
 export default function AIConversationScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
+  const isKeyboardVisible = useKeyboardVisible();
   const isOnline = useSyncStore((state) => state.isOnline);
   const {
     currentConversation,
@@ -898,11 +901,11 @@ export default function AIConversationScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }} edges={["top"]}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 4 : 0}
+        keyboardVerticalOffset={0}
       >
         {/* ── Header ── */}
         <View style={{
@@ -1002,7 +1005,7 @@ export default function AIConversationScreen() {
               showsVerticalScrollIndicator={false}
               onScroll={handleScroll}
               scrollEventThrottle={16}
-              keyboardDismissMode="interactive"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               keyboardShouldPersistTaps="handled"
               onContentSizeChange={() => {
                 if (isAtBottomRef.current) scrollToEnd(messages.length > 1);
@@ -1048,7 +1051,9 @@ export default function AIConversationScreen() {
           borderTopColor: "#f0f0f0",
           paddingHorizontal: 16,
           paddingTop: 12,
-          paddingBottom: Platform.OS === "ios" ? 8 : 12,
+          paddingBottom: isKeyboardVisible
+            ? 8
+            : Math.max(insets.bottom, 8),
         }}>
           {/* Input row */}
           <View style={{
@@ -1089,11 +1094,13 @@ export default function AIConversationScreen() {
               onSubmitEditing={canSend ? handleSend : undefined}
               blurOnSubmit={false}
               textAlignVertical="top"
+              scrollEnabled={true}
             />
 
             {/* Send button — inside the input pill */}
             <Pressable
               onPress={canSend ? handleSend : undefined}
+              hitSlop={6}
               style={{
                 width: 40,
                 height: 40,
@@ -1117,13 +1124,16 @@ export default function AIConversationScreen() {
           </View>
 
           {/* Disclaimer */}
-          <Text style={{
-            fontSize: 11,
-            color: "#b0b7c3",
-            textAlign: "center",
-            marginTop: 8,
-            lineHeight: 16,
-          }}>
+          <Text
+            numberOfLines={2}
+            style={{
+              fontSize: 11,
+              color: "#b0b7c3",
+              textAlign: "center",
+              marginTop: 8,
+              lineHeight: 16,
+            }}
+          >
             <T>Gluvia AI may make mistakes. Consult your healthcare provider.</T>
           </Text>
         </View>
